@@ -17,6 +17,8 @@ try:
     from src.models.random_forest_model import train_random_forest
     from src.models.xgboost_model import train_xgboost
     from src.models.decision_tree_model import train_decision_tree
+    from src.models.mlp_model import train_mlp
+    from src.models.isolation_forest_model import train_isolation_forest
     from src.visualization.visualize import evaluate
     from src.models.predict_model import predict_sample
 except ImportError as e:
@@ -73,6 +75,7 @@ def main():
     parser.add_argument("--skip-eda", action="store_true", help="Pula a etapa de Análise Exploratória.")
     parser.add_argument("--compare-models", action="store_true", help="Executa o torneio de modelos (Demorado).")
     parser.add_argument("--predict", action="store_true", help="Roda uma simulação de predição no final.")
+    parser.add_argument("--models", type=str, default="all", help="Modelos a rodar separados por vírgula (ex: xgb,rf). Opções: logreg, dt, rf, xgb, mlp, if. Default: all")
     
     args = parser.parse_args()
 
@@ -106,32 +109,58 @@ def main():
         print("\n⏩ [MAESTRO] Pulando Torneio de Modelos (Padrão).")
 
     # 5. MODEL TRAINING & EVALUATION
-    print("\n🧠 [MAESTRO] 4. Movimento: Treinamento & Avaliação de Múltiplos Modelos")
+    print("\n🧠 [MAESTRO] 4. Movimento: Treinamento & Avaliação e Seleção de Modelos")
+    
+    # Parse models argument
+    if args.models == "all":
+        selected_models = ["logreg", "dt", "rf", "xgb", "mlp", "if"]
+    else:
+        selected_models = [m.strip().lower() for m in args.models.split(",")]
 
     # 4.1 Logistic Regression
-    print("\n📌 [SUB-TAREFA] 4.1. Logistic Regression")
-    train_logistic_regression()
-    evaluate(model_name="logreg")
+    if "logreg" in selected_models:
+        print("\n📌 [SUB-TAREFA] 4.1. Logistic Regression")
+        train_logistic_regression()
+        evaluate(model_name="logreg")
 
     # 4.2 Decision Tree
-    print("\n📌 [SUB-TAREFA] 4.2. Decision Tree")
-    train_decision_tree()
-    evaluate(model_name="dt")
+    if "dt" in selected_models:
+        print("\n📌 [SUB-TAREFA] 4.2. Decision Tree")
+        train_decision_tree()
+        evaluate(model_name="dt")
 
     # 4.3 Random Forest
-    print("\n📌 [SUB-TAREFA] 4.3. Random Forest")
-    train_random_forest()
-    evaluate(model_name="rf")
+    if "rf" in selected_models:
+        print("\n📌 [SUB-TAREFA] 4.3. Random Forest")
+        train_random_forest()
+        evaluate(model_name="rf")
 
     # 4.4 XGBoost
-    print("\n📌 [SUB-TAREFA] 4.4. XGBoost")
-    train_xgboost()
-    evaluate(model_name="xgb")
+    if "xgb" in selected_models:
+        print("\n📌 [SUB-TAREFA] 4.4. XGBoost")
+        train_xgboost()
+        evaluate(model_name="xgb")
+        
+    # 4.5 MLP (Neural Network)
+    if "mlp" in selected_models:
+        print("\n📌 [SUB-TAREFA] 4.5. MLP Neural Network")
+        train_mlp()
+        evaluate(model_name="mlp")
+        
+    # 4.6 Isolation Forest
+    if "if" in selected_models:
+        print("\n📌 [SUB-TAREFA] 4.6. Isolation Forest (Anomaly Detection)")
+        train_isolation_forest()
+        # Nota: IF precisa de tratamento especial no evaluate se não tiver predict_proba,
+        # mas nosso Wrapper implementa predict_proba, então deve funcionar!
+        evaluate(model_name="if")
 
     # 7. PREDICTION (Opcional)
     if args.predict:
         print("\n🔮 [MAESTRO] 6. Movimento: Simulação de Produção (predict_model.py)")
-        predict_sample(model_name="logreg")
+        # Usa o primeiro modelo da lista selecionada como default para predição, ou xgb se disponível
+        pred_model = "xgb" if "xgb" in selected_models else selected_models[0]
+        predict_sample(model_name=pred_model)
 
     print("\n🏁 [MAESTRO] Sinfonia Concluída! Seu projeto foi executado com sucesso.")
     print(f"📊 Verifique os relatórios em: {REPORTS_DIR}")

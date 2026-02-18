@@ -51,16 +51,31 @@ _Removemos o SMOTE completamente e focamos puramente em Pesos de Classe (Class W
 
 ---
 
+### 🧪 Experimento 4: Refinamento de Hiperparâmetros (Redução de Complexidade)
+
+_Nesta fase, simplificamos os modelos (menor profundidade e número de estimadores) para reduzir overfitting e testamos novos limiares de decisão, sem uso de SMOTE._
+
+| Run ID            | Modelo              | ROC-AUC    | F1-Score (Macro) | Precision (Weighted) | Recall (Weighted) | Threshold Otimizado |
+| :---------------- | :------------------ | :--------- | :--------------- | :------------------- | :---------------- | :------------------ |
+| `20260218_105559` | **XGBoost 🏆**      | **0.8930** | **0.4967**       | **0.9869**           | **0.8232**        | **> 0.88**          |
+| `20260218_102718` | Random Forest       | 0.8790     | 0.5156           | 0.9859               | 0.8652            | > 0.81              |
+| `20260218_100725` | Logistic Regression | 0.8759     | 0.4866           | 0.9866               | 0.8048            | > 0.90              |
+| `20260218_101421` | Decision Tree       | 0.8268     | 0.4847           | 0.9854               | 0.8100            | > 0.90              |
+
+> **Diagnóstico:** O XGBoost atingiu seu melhor ROC-AUC (0.8930). O ajuste de threshold resultou em um perfil muito mais agressivo na detecção de fraudes (maior Recall), embora com impacto no F1-Score devido ao aumento de falsos positivos (trade-off aceito para maior segurança).
+
+---
+
 ## 🚀 Resultados dos Modelos (Benchmark Final)
 
 Após rigorosa otimização de hiperparâmetros e ajuste fino de limiares de decisão (Threshold Tuning), os modelos atingiram os seguintes resultados nos dados de validação:
 
-| Modelo                     | ROC-AUC    | F1-Score   | Observação Crítica                                                                               |
-| :------------------------- | :--------- | :--------- | :----------------------------------------------------------------------------------------------- |
-| **🥇 XGBoost**             | **0.8806** | **0.5753** | O campeão indiscutível. Melhor equilíbrio entre pegar fraudes e não bloquear clientes legítimos. |
-| **🥈 Random Forest**       | 0.8795     | 0.5814     | Desempenho sólido, muito próximo do XGBoost, ligeiramente mais conservador.                      |
-| **🥉 Logistic Regression** | 0.8746     | 0.5594     | Excelente baseline. Surpreendentemente robusto para um modelo linear simples.                    |
-| **Decision Tree**          | 0.8266     | 0.5741     | O mais fraco, propenso a overfitting, mas útil para explicar regras simples.                     |
+| Modelo                     | ROC-AUC    | F1-Score   | Observação Crítica                                                               |
+| :------------------------- | :--------- | :--------- | :------------------------------------------------------------------------------- |
+| **🥇 XGBoost**             | **0.8930** | **0.4967** | Novo recorde de ROC-AUC. Modelo simplificado (100 árvores) e altamente sensível. |
+| **🥈 Random Forest**       | 0.8790     | 0.5156     | Consistente. Redução de complexidade (Depth 10) manteve performance estatística. |
+| **🥉 Logistic Regression** | 0.8759     | 0.4866     | Baseline extremamente estável e robusto.                                         |
+| **Decision Tree**          | 0.8268     | 0.4847     | O mais fraco, mas útil para explicar regras simples.                             |
 
 > **Nota Técnica:** O F1-Score pode parecer "baixo" (0.57), mas em detecção de fraude (onde a classe positiva é 1%), esse valor é **excelente**. Um modelo aleatório teria F1 próximo de 0.02.
 
@@ -74,29 +89,29 @@ Todos os modelos treinados são salvos automaticamente na pasta `models/` com ve
 
 - **Arquivo do Modelo:** `models/xgb_best_model.pkl`
 - **Melhores Hiperparâmetros:**
-  - `learning_rate`: 0.1 (Aprendizado cauteloso)
-  - `max_depth`: 3 (Árvores rasas para evitar overfitting)
-  - `n_estimators`: 200 (Número robusto de árvores)
-  - `scale_pos_weight`: 90 (Peso 90:1 para compensar o desbalanceamento)
-- **Threshold Otimizado:** `> 0.26` (Qualquer transação com probabilidade acima de 26% é classificada como fraude para maximizar o lucro).
+  - `learning_rate`: 0.1
+  - `max_depth`: 3 (Árvores rasas)
+  - `n_estimators`: 100 (Reduzido de 200 para evitar overfitting)
+  - `scale_pos_weight`: 90
+- **Threshold Otimizado:** `> 0.88` (Alta especificidade na probabilidade).
 
 ### 2. Random Forest
 
 - **Arquivo do Modelo:** `models/rf_best_model.pkl`
 - **Melhores Hiperparâmetros:**
   - `n_estimators`: 200
-  - `max_depth`: 20 (Árvores profundas)
+  - `max_depth`: 10 (Reduzido de 20)
   - `class_weight`: 'balanced'
-- **Threshold Otimizado:** `> 0.34`
+- **Threshold Otimizado:** `> 0.81`
 
 ### 3. Logistic Regression
 
 - **Arquivo do Modelo:** `models/logreg_best_model.pkl`
 - **Melhores Hiperparâmetros:**
-  - `C`: 0.01 (Alta regularização para generalização)
-  - `penalty`: 'l2' (Ridge Regression)
+  - `C`: 0.01
+  - `penalty`: 'l2'
   - `class_weight`: 'balanced'
-- **Threshold Otimizado:** `> 0.79` (Muito exigente, só bloqueia se tiver quase certeza absoluta).
+- **Threshold Otimizado:** `> 0.90`
 
 ---
 
