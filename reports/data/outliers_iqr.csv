@@ -1,0 +1,27 @@
+Feature,Outliers,% Outliers,Lower Bound,Upper Bound
+proposed_credit_limit,241742,24.174200000000003,-250.0,950.0
+has_other_cards,222988,22.2988,0.0,0.0
+intended_balcon_amount,222702,22.270200000000003,-10.429983564903747,14.232671469024815
+bank_branch_count_8w,175243,17.5243,-35.0,61.0
+prev_address_months_count,157320,15.732,-20.5,31.5
+phone_mobile_valid,110324,11.0324,1.0,1.0
+days_since_request,94834,9.4834,-0.021512915667976428,0.05503684945667498
+session_length_in_minutes,78789,7.8789,-5.541564230874761,17.510748289573602
+zip_count_4w,59871,5.9871,-681.0,3519.0
+current_address_months_count,41001,4.1001,-147.5,296.5
+device_distinct_emails_8w,31933,3.1933000000000002,1.0,1.0
+foreign_request,25242,2.5242,0.0,0.0
+date_of_birth_distinct_emails_4w,9734,0.9733999999999999,-4.5,23.5
+velocity_6h,9005,0.9005000000000001,-2930.162121111973,14047.245796500492
+credit_risk_score,8729,0.8729,-59.5,320.5
+velocity_24h,2917,0.2917,354.08655040491703,8991.666774843372
+customer_age,1373,0.1373,-10.0,70.0
+name_email_similarity,0,0.0,-0.5703101595945982,1.5510937888510683
+income,0,0.0,-0.45,1.55
+phone_home_valid,0,0.0,-1.5,2.5
+email_is_free,0,0.0,-1.5,2.5
+velocity_4w,0,0.0,2438.7960224776753,7317.655756797386
+bank_months_count,0,0.0,-40.0,64.0
+keep_alive_session,0,0.0,-1.5,2.5
+device_fraud_count,0,0.0,0.0,0.0
+month,0,0.0,-5.0,11.0

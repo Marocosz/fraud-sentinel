@@ -1,0 +1,27 @@
+Feature,MI Score
+device_distinct_emails_8w,0.010216538484135063
+email_is_free,0.010027655342001673
+keep_alive_session,0.00996999293092038
+phone_mobile_valid,0.007698118352215011
+phone_home_valid,0.006015821421449519
+proposed_credit_limit,0.004636326487875486
+customer_age,0.004512075650489833
+income,0.003629539519042435
+has_other_cards,0.0019349015722902596
+credit_risk_score,0.0018916696095523378
+bank_months_count,0.0017793905284736455
+date_of_birth_distinct_emails_4w,0.0016479854800049987
+name_email_similarity,0.0015875025255466246
+prev_address_months_count,0.0014654097921034115
+month,0.0013726404289430283
+intended_balcon_amount,0.001332616465486658
+current_address_months_count,0.00130221626691851
+velocity_4w,0.001273022038821181
+velocity_6h,0.0010980482087268317
+bank_branch_count_8w,0.0009553069687735505
+days_since_request,0.0006028351920428499
+velocity_24h,0.00018414862073445892
+device_fraud_count,9.953168223042486e-05
+zip_count_4w,0.0
+session_length_in_minutes,0.0
+foreign_request,0.0
