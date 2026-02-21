@@ -615,5 +615,112 @@
                 1776
             ]
         ]
+    },
+    {
+        "run_id": "20260218_134225",
+        "timestamp": "2026-02-18T13:48:04.424942",
+        "model_type": "MLPClassifier",
+        "smote_strategy": null,
+        "best_params": {
+            "model__activation": "tanh",
+            "model__alpha": 0.0001,
+            "model__hidden_layer_sizes": [
+                50,
+                25
+            ],
+            "model__learning_rate_init": 0.001
+        },
+        "best_cv_score": 0.8757127223595695,
+        "best_threshold": 0.14329635994529424,
+        "model_path": "model_mlp_20260218_134225.pkl",
+        "roc_auc": 0.8820771647078701,
+        "classification_report": {
+            "0": {
+                "precision": 0.9891407648983104,
+                "recall": 0.999782602101176,
+                "f1-score": 0.9944332136499412,
+                "support": 197794.0
+            },
+            "1": {
+                "precision": 0.44871794871794873,
+                "recall": 0.01586582048957389,
+                "f1-score": 0.03064798598949212,
+                "support": 2206.0
+            },
+            "accuracy": 0.98893,
+            "macro avg": {
+                "precision": 0.7189293568081295,
+                "recall": 0.5078242112953749,
+                "f1-score": 0.5125405998197167,
+                "support": 200000.0
+            },
+            "weighted avg": {
+                "precision": 0.983179901235841,
+                "recall": 0.98893,
+                "f1-score": 0.9838026625888464,
+                "support": 200000.0
+            }
+        },
+        "confusion_matrix": [
+            [
+                197751,
+                43
+            ],
+            [
+                2171,
+                35
+            ]
+        ]
+    },
+    {
+        "run_id": "20260218_134806",
+        "timestamp": "2026-02-18T13:48:32.761591",
+        "model_type": "IsolationForest",
+        "smote_strategy": null,
+        "best_params": {
+            "n_estimators": 200,
+            "contamination": 0.01
+        },
+        "best_cv_score": 0.5393505843656188,
+        "best_threshold": 0.5657741781734507,
+        "model_path": "model_if_20260218_134806.pkl",
+        "roc_auc": 0.5339028056067674,
+        "classification_report": {
+            "0": {
+                "precision": 0.9890066606406133,
+                "recall": 0.9901817041972962,
+                "f1-score": 0.9895938336074458,
+                "support": 197794.0
+            },
+            "1": {
+                "precision": 0.014713343480466767,
+                "recall": 0.01314596554850408,
+                "f1-score": 0.013885563801771606,
+                "support": 2206.0
+            },
+            "accuracy": 0.979405,
+            "macro avg": {
+                "precision": 0.50186000206054,
+                "recall": 0.5016638348729001,
+                "f1-score": 0.5017396987046087,
+                "support": 200000.0
+            },
+            "weighted avg": {
+                "precision": 0.9782602053523368,
+                "recall": 0.979405,
+                "f1-score": 0.9788317713914891,
+                "support": 200000.0
+            }
+        },
+        "confusion_matrix": [
+            [
+                195852,
+                1942
+            ],
+            [
+                2177,
+                29
+            ]
+        ]
     }
 ]

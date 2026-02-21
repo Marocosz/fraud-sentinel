@@ -66,6 +66,22 @@ _Nesta fase, simplificamos os modelos (menor profundidade e número de estimador
 
 ---
 
+### 🧪 Experimento 5: Redes Neurais e Detecção de Anomalias
+
+_Exploramos arquiteturas alternativas: MLP (Multi-Layer Perceptron) para capturar não-linearidades complexas e Isolation Forest para detecção não-supervisionada._
+
+| Run ID            | Modelo               | ROC-AUC | F1-Score (Macro) | Precision (Weighted) | Recall (Weighted) | Threshold Otimizado |
+| :---------------- | :------------------- | :------ | :--------------- | :------------------- | :---------------- | :------------------ |
+| `20260218_134225` | **MLP (Neural Net)** | 0.8821  | 0.5125           | 0.9832               | 0.9889            | > 0.14              |
+| `20260218_134806` | Isolation Forest     | 0.5339  | 0.5017           | 0.9783               | 0.9794            | > 0.57              |
+
+> **Conclusão:**
+>
+> - **MLP:** Mostrou excelente potencial (ROC-AUC 0.8821), competindo diretamente com os modelos de árvore (Random Forest/XGBoost). No entanto, o Recall para a classe minoritária (fraude) foi muito baixo (1.5%) com a configuração atual, indicando necessidade de ajuste nos pesos de classe.
+> - **Isolation Forest:** Teve desempenho próximo ao aleatório (ROC-AUC ~0.53). Isso sugere que as fraudes neste dataset não são "anomalias" geométricas óbvias que distanciam muito do padrão normal, ou que o método precisa de uma engenharia de features específica. O XGBoost continua sendo a melhor escolha.
+
+---
+
 ## 🚀 Resultados dos Modelos (Benchmark Final)
 
 Após rigorosa otimização de hiperparâmetros e ajuste fino de limiares de decisão (Threshold Tuning), os modelos atingiram os seguintes resultados nos dados de validação:
@@ -111,7 +127,21 @@ Todos os modelos treinados são salvos automaticamente na pasta `models/` com ve
   - `C`: 0.01
   - `penalty`: 'l2'
   - `class_weight`: 'balanced'
-- **Threshold Otimizado:** `> 0.90`
+
+### 4. MLP (Rede Neural)
+
+- **Arquivo do Modelo:** `models/mlp_best_model.pkl`
+- **Melhores Hiperparâmetros:**
+  - `hidden_layer_sizes`: (50, 25) (Duas camadas ocultas)
+  - `activation`: 'tanh'
+  - `alpha`: 0.0001 (Regularização leve)
+  - `learning_rate_init`: 0.001
+- **Threshold Otimizado:** `> 0.14`
+
+### 5. Isolation Forest (Experimental)
+
+- **Arquivo do Modelo:** `models/if_best_model.pkl`
+- **Resultados:** Baixa performance. Mantido apenas para fins de comparação acadêmica de detecção de anomalias.
 
 ---
 
@@ -314,10 +344,23 @@ O "clássico" de competições. Cria uma floresta de árvores decisionais aleat�
 O estado da arte (SOTA) em dados tabulares. Utiliza Gradient Boosting, onde cada nova árvore corrige os erros da anterior.
 
 - **Por que usar?** Velocidade e precisão cirúrgica. É o padrão de mercado para sistemas de fraude de alta performance.
+
+#### 5. MLP Classifier (`mlp_model.py`)
+
+Rede Neural "Feedforward" clássica.
+
+- **Por que usar?** Capacidade de modelar fronteiras de decisão extremamente complexas e não-lineares que árvores podem perder.
 - **Hiperparâmetros Otimizados:**
-  - `learning_rate`: A velocidade com que o modelo aprende.
-  - `scale_pos_weight`: Um parâmetro crítico para dados desbalanceados. Diz ao modelo para dar `90x` mais atenção aos casos de fraude do que aos legítimos.
-  - `max_depth`: Profundidade das árvores (XGBoost prefere árvores mais "rasas" que Random Forest).
+  - `hidden_layer_sizes`: Quantidade de neurônios. Testamos arquiteturas rasas e profundas.
+  - `activation`: (`relu` vs `tanh`). A função que "ativa" o neurônio.
+  - `early_stopping`: **Crucial**. Faz o treino parar assim que a performance para de melhorar, economizando horas de processamento.
+
+#### 6. Isolation Forest (`isolation_forest_model.py`)
+
+Algoritmo de Detecção de Anomalias (Unsupervised).
+
+- **Por que usar?** Hipótese de que fraudes são tão raras e diferentes que podem ser detectadas sem precisar de labels ("eu sei o que é normal, o resto é suspeito").
+- **Resultado:** Neste dataset, a hipótese não se confirmou tão bem quanto os métodos supervisionados, provando que o padrão de fraude aqui é sutil e precisa de exemplos (labels) para ser aprendido.
 
 ### 📂 Artefatos Gerados
 

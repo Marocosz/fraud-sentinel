@@ -161,11 +161,7 @@ def evaluate(model_name="logreg"):
         except Exception as e:
             print(f"⚠️ Erro ao atualizar log de experimentos: {e}")
             
-    # Mantém compatibilidade salvando também o metrics.json avulso
-    metrics_path = REPORTS_DIR / "metrics.json"
-    with open(metrics_path, "w") as f:
-        json.dump(metrics_data, f, indent=4)
-    print(f"💾 Métricas (snapshot) salvas em: {metrics_path}")
+
 
     # --------------------------------------------------------------------------
     # 4. VISUALIZAÇÕES (Figuras)
