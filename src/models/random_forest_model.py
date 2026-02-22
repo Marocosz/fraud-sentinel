@@ -53,7 +53,7 @@ sys.path.append(str(PROJECT_ROOT))
 
 # Imports do Projeto
 from src.config import PROCESSED_DATA_DIR, MODELS_DIR, RANDOM_STATE, REPORTS_DIR
-from src.features.build_features import get_preprocessor
+from src.features.build_features import build_pipeline
 
 # Configuração de Logs (Profissionalismo)
 logging.basicConfig(
@@ -121,19 +121,14 @@ def train_random_forest():
     logger.info(f"   Dimensões: {X_train.shape[0]} amostras, {X_train.shape[1]} features.")
 
     # -------------------------------------------------------------------------
-    # 2. DEFINIÇÃO DO PIPELINE
+    # 2. DEFINIÇÃO DO PIPELINE (EDA-DRIVEN)
     # -------------------------------------------------------------------------
-    # Recupera o preprocessor (RobustScaler para tratar outliers financeiros)
-    preprocessor = get_preprocessor(X_train)
-    
-    # Instancia o modelo base usando os parâmetros configurados
+    # Pipeline de 3 etapas: EDAFeatureEngineer -> ColumnTransformer -> Modelo
     clf = MODEL_CONFIG["model_class"](**MODEL_CONFIG["model_params"])
     
     logger.info("❌ SMOTE Desativado. Usando class_weight='balanced'.")
-    pipeline = Pipeline(steps=[
-        ('preprocessor', preprocessor),
-        ('model', clf)
-    ])
+    logger.info("🔬 Aplicando Feature Engineering baseado na EDA.")
+    pipeline = build_pipeline(X_train, clf)
     
     # -------------------------------------------------------------------------
     # 3. ESPAÇO DE HIPERPARÂMETROS (Grid Search)

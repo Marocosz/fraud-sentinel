@@ -5,19 +5,113 @@
 
 ---
 
-# Resultados da Analise Exploratoria (EDA)
+- [Fraud Sentinel - Sistema Avancado de Deteccao de Fraudes Bancarias](#fraud-sentinel---sistema-avancado-de-deteccao-de-fraudes-bancarias)
+- [1 Resultados da Analise Exploratoria (EDA)](#1-resultados-da-analise-exploratoria-eda)
+  - [1.1 Carga de Dados](#11-carga-de-dados)
+  - [1.2 Estrutura e Qualidade dos Dados](#12-estrutura-e-qualidade-dos-dados)
+    - [1.2.1 Tipos de Dados e Cardinalidade](#121-tipos-de-dados-e-cardinalidade)
+  - [1.3 Dominio das Variaveis Categoricas](#13-dominio-das-variaveis-categoricas)
+  - [1.4 Estatisticas Descritivas (Variaveis Numericas)](#14-estatisticas-descritivas-variaveis-numericas)
+  - [1.5 Quantificacao de Outliers (Metodo IQR)](#15-quantificacao-de-outliers-metodo-iqr)
+  - [1.6 Distribuicao do Target](#16-distribuicao-do-target)
+  - [1.7 Testes Estatisticos (Mann-Whitney U -- Fraude vs Legitima)](#17-testes-estatisticos-mann-whitney-u----fraude-vs-legitima)
+  - [1.8 Mutual Information (Importancia de Features)](#18-mutual-information-importancia-de-features)
+  - [1.9 Analise Temporal (Taxa de Fraude por Mes)](#19-analise-temporal-taxa-de-fraude-por-mes)
+  - [1.10 Correlacoes com o Target (Spearman)](#110-correlacoes-com-o-target-spearman)
+  - [1.11 Analise de Risco Categorico (Taxa de Fraude por Categoria)](#111-analise-de-risco-categorico-taxa-de-fraude-por-categoria)
+    - [1.11.1 Risco por Tipo de Pagamento (`payment_type`)](#1111-risco-por-tipo-de-pagamento-payment_type)
+    - [1.11.2 Risco por Status de Emprego (`employment_status`)](#1112-risco-por-status-de-emprego-employment_status)
+    - [1.11.3 Risco por Status de Moradia (`housing_status`)](#1113-risco-por-status-de-moradia-housing_status)
+    - [1.11.4 Risco por Origem da Solicitacao (`source`)](#1114-risco-por-origem-da-solicitacao-source)
+    - [1.11.5 Risco por Sistema Operacional (`device_os`)](#1115-risco-por-sistema-operacional-device_os)
+- [2. Visao Geral do Projeto](#2-visao-geral-do-projeto)
+- [2. Arquitetura Geral](#2-arquitetura-geral)
+  - [2.1 Tipo de Arquitetura](#21-tipo-de-arquitetura)
+  - [2.2 Diagrama da Arquitetura](#22-diagrama-da-arquitetura)
+  - [2.3 Fluxo Macro (Requisicao ate Resposta)](#23-fluxo-macro-requisicao-ate-resposta)
+  - [2.4 Separacao de Camadas](#24-separacao-de-camadas)
+- [3. Estrutura de Diretorios](#3-estrutura-de-diretorios)
+  - [3.1 Descricao Detalhada de Cada Arquivo](#31-descricao-detalhada-de-cada-arquivo)
+    - [main.py -- Orquestrador Principal](#mainpy----orquestrador-principal)
+    - [src/config.py -- Configuracoes Globais](#srcconfigpy----configuracoes-globais)
+    - [src/data/make_dataset.py -- Engenharia de Dados](#srcdatamake_datasetpy----engenharia-de-dados)
+    - [src/features/build_features.py -- Pipeline de Features](#srcfeaturesbuild_featurespy----pipeline-de-features)
+    - [src/models/reg_log_model.py -- Logistic Regression](#srcmodelsreg_log_modelpy----logistic-regression)
+    - [src/models/decision_tree_model.py -- Decision Tree](#srcmodelsdecision_tree_modelpy----decision-tree)
+    - [src/models/random_forest_model.py -- Random Forest](#srcmodelsrandom_forest_modelpy----random-forest)
+    - [src/models/xgboost_model.py -- XGBoost](#srcmodelsxgboost_modelpy----xgboost)
+    - [src/models/mlp_model.py -- MLP Neural Network](#srcmodelsmlp_modelpy----mlp-neural-network)
+    - [src/models/isolation_forest_model.py -- Isolation Forest](#srcmodelsisolation_forest_modelpy----isolation-forest)
+    - [src/models/compare_models.py -- Benchmark de Algoritmos](#srcmodelscompare_modelspy----benchmark-de-algoritmos)
+    - [src/models/predict_model.py -- Simulacao de Producao](#srcmodelspredict_modelpy----simulacao-de-producao)
+    - [src/models/force_precision.py -- Ajuste de Precision-Alvo](#srcmodelsforce_precisionpy----ajuste-de-precision-alvo)
+    - [src/visualization/generate_eda_report.py -- EDA Automatizada](#srcvisualizationgenerate_eda_reportpy----eda-automatizada)
+    - [src/visualization/visualize.py -- Avaliacao Final](#srcvisualizationvisualizepy----avaliacao-final)
+- [4. Fluxos Detalhados](#4-fluxos-detalhados)
+  - [4.1 Fluxo Principal do Sistema](#41-fluxo-principal-do-sistema)
+  - [4.2 Fluxo de Treinamento de Modelo (Generico)](#42-fluxo-de-treinamento-de-modelo-generico)
+  - [4.3 Fluxo de Inferencia (Predicao)](#43-fluxo-de-inferencia-predicao)
+  - [4.4 Fluxo de Tratamento de Erros](#44-fluxo-de-tratamento-de-erros)
+  - [4.5 Fluxo de Logs](#45-fluxo-de-logs)
+- [5. Banco de Dados](#5-banco-de-dados)
+- [6. Regras de Negocio](#6-regras-de-negocio)
+  - [6.1 Regras de Classificacao](#61-regras-de-classificacao)
+  - [6.2 Regras de Balanceamento](#62-regras-de-balanceamento)
+  - [6.3 Regras de Validacao](#63-regras-de-validacao)
+  - [6.4 Regras de Versionamento de Modelos](#64-regras-de-versionamento-de-modelos)
+  - [6.5 Regras de Motor de Decisao](#65-regras-de-motor-de-decisao)
+- [7. Integracoes Externas](#7-integracoes-externas)
+  - [7.1 Bibliotecas Criticas](#71-bibliotecas-criticas)
+- [8. Logica e Algoritmos](#8-logica-e-algoritmos)
+  - [8.1 Otimizacao de Memoria (Downcasting)](#81-otimizacao-de-memoria-downcasting)
+  - [8.2 Threshold Tuning](#82-threshold-tuning)
+  - [8.3 IForestWrapper (Adapter Pattern)](#83-iforestwrapper-adapter-pattern)
+  - [8.4 Amostragem Estratificada para GridSearch](#84-amostragem-estratificada-para-gridsearch)
+  - [8.5 Informacao Mutua (MI)](#85-informacao-mutua-mi)
+- [9. Configuracoes e Variaveis de Ambiente](#9-configuracoes-e-variaveis-de-ambiente)
+- [10. Como Executar o Projeto](#10-como-executar-o-projeto)
+  - [10.1 Requisitos](#101-requisitos)
+  - [10.2 Instalacao](#102-instalacao)
+  - [10.3 Preparacao dos Dados](#103-preparacao-dos-dados)
+  - [10.4 Execucao](#104-execucao)
+- [11. Estrategia de Logs e Monitoramento](#11-estrategia-de-logs-e-monitoramento)
+  - [11.1 Logs em Console](#111-logs-em-console)
+  - [11.2 Log Persistido (experiments_log.json)](#112-log-persistido-experiments_logjson)
+  - [11.3 Diagnostico de Problemas](#113-diagnostico-de-problemas)
+- [12. Pontos Criticos do Sistema](#12-pontos-criticos-do-sistema)
+  - [12.1 Gargalos de Performance](#121-gargalos-de-performance)
+  - [12.2 Riscos Arquiteturais](#122-riscos-arquiteturais)
+  - [12.3 Partes Sensiveis](#123-partes-sensiveis)
+- [13. Teoria Tecnica Envolvida](#13-teoria-tecnica-envolvida)
+  - [13.1 Padroes de Projeto](#131-padroes-de-projeto)
+  - [13.2 Conceitos de ML Aplicados](#132-conceitos-de-ml-aplicados)
+  - [13.3 Conceitos Estatisticos](#133-conceitos-estatisticos)
+- [14. Melhorias Futuras](#14-melhorias-futuras)
+  - [14.1 Sugestoes Estruturais](#141-sugestoes-estruturais)
+  - [14.2 Melhorias de Performance](#142-melhorias-de-performance)
+  - [14.3 Refatoracoes Recomendadas](#143-refatoracoes-recomendadas)
+- [15. Analise Critica da Arquitetura](#15-analise-critica-da-arquitetura)
+  - [15.1 Codigo Duplicado (Alto Impacto)](#151-codigo-duplicado-alto-impacto)
+  - [15.2 Chave Duplicada no Dicionario](#152-chave-duplicada-no-dicionario)
+  - [15.3 Variavel Nao Utilizada](#153-variavel-nao-utilizada)
+  - [15.4 Import Duplicado](#154-import-duplicado)
+  - [15.5 Testes Nao Implementados](#155-testes-nao-implementados)
+  - [15.6 Inconsistencia na Estrategia de Amostragem para GridSearch](#156-inconsistencia-na-estrategia-de-amostragem-para-gridsearch)
+  - [15.7 Acoplamento com Sistema de Arquivos](#157-acoplamento-com-sistema-de-arquivos)
+
+# 1 Resultados da Analise Exploratoria (EDA)
 
 A partir do arquivo `generate_eda_report.py` criamos um relatorio textual (`reports/eda_summary.txt`) com o sumario completo da base de dados. A seguir estao todas as informacoes e descricoes geradas a partir da analise da base inicial.
 
-## Carga de Dados
+## 1.1 Carga de Dados
 
 O dataset carregado possui **1.000.000 de linhas** e **32 colunas**. A coluna alvo (target) e `fraud_bool`, que indica se a abertura de conta e fraudulenta (1) ou legitima (0).
 
-## Estrutura e Qualidade dos Dados
+## 1.2 Estrutura e Qualidade dos Dados
 
 O dataset nao possui **nenhum valor nulo** e **nenhuma linha duplicada** (0.00%). Todos os 1.000.000 de registros sao completos e unicos.
 
-### Tipos de Dados e Cardinalidade
+### 1.2.1 Tipos de Dados e Cardinalidade
 
 | Coluna                             | Tipo    | Nulos | % Nulos | Cardinalidade |
 | ---------------------------------- | ------- | ----- | ------- | ------------- |
@@ -56,7 +150,7 @@ O dataset nao possui **nenhum valor nulo** e **nenhuma linha duplicada** (0.00%)
 
 Resumo de tipos: 9 colunas float64, 18 colunas int64, 5 colunas object (categoricas). Uso de memoria: ~244 MB.
 
-## Dominio das Variaveis Categoricas
+## 1.3 Dominio das Variaveis Categoricas
 
 | Variavel            | Categorias | Valores                               |
 | ------------------- | ---------- | ------------------------------------- |
@@ -66,7 +160,7 @@ Resumo de tipos: 9 colunas float64, 18 colunas int64, 5 colunas object (categori
 | `source`            | 2          | INTERNET, TELEAPP                     |
 | `device_os`         | 5          | linux, macintosh, other, windows, x11 |
 
-## Estatisticas Descritivas (Variaveis Numericas)
+## 1.4 Estatisticas Descritivas (Variaveis Numericas)
 
 | Variavel                           | Media   | Desvio Padrao | Min     | Q1 (25%) | Mediana (50%) | Q3 (75%) | Max      |
 | ---------------------------------- | ------- | ------------- | ------- | -------- | ------------- | -------- | -------- |
@@ -97,7 +191,7 @@ Resumo de tipos: 9 colunas float64, 18 colunas int64, 5 colunas object (categori
 | `device_fraud_count`               | 0.00    | 0.00          | 0       | 0        | 0             | 0        | 0        |
 | `month`                            | 3.29    | 2.21          | 0       | 1        | 3             | 5        | 7        |
 
-## Quantificacao de Outliers (Metodo IQR)
+## 1.5 Quantificacao de Outliers (Metodo IQR)
 
 | Variavel                           | Outliers | % Outliers | Limite Inferior | Limite Superior |
 | ---------------------------------- | -------- | ---------- | --------------- | --------------- |
@@ -122,7 +216,7 @@ Resumo de tipos: 9 colunas float64, 18 colunas int64, 5 colunas object (categori
 | `income`                           | 0        | 0.00%      | -0.45           | 1.55            |
 | `velocity_4w`                      | 0        | 0.00%      | 2438.80         | 7317.66         |
 
-## Distribuicao do Target
+## 1.6 Distribuicao do Target
 
 | Classe       | Total   | Percentual |
 | ------------ | ------- | ---------- |
@@ -131,7 +225,7 @@ Resumo de tipos: 9 colunas float64, 18 colunas int64, 5 colunas object (categori
 
 O dataset e **extremamente desbalanceado**: apenas 1.10% das aberturas de conta sao fraudulentas. Isso justifica o uso de tecnicas como Cost-Sensitive Learning (`class_weight='balanced'`, `scale_pos_weight=90`) e metricas como ROC-AUC e Recall em vez de Acuracia.
 
-## Testes Estatisticos (Mann-Whitney U -- Fraude vs Legitima)
+## 1.7 Testes Estatisticos (Mann-Whitney U -- Fraude vs Legitima)
 
 O teste Mann-Whitney U e um teste nao-parametrico que verifica se a distribuicao de uma variavel e estatisticamente diferente entre os dois grupos (Fraude e Legitima). Se p-value < 0.05, a diferenca e significativa.
 
@@ -166,7 +260,7 @@ O teste Mann-Whitney U e um teste nao-parametrico que verifica se a distribuicao
 
 **Conclusao**: 24 de 26 variaveis numericas apresentam diferenca estatisticamente significativa entre fraudes e contas legitimas. Apenas `session_length_in_minutes` e `device_fraud_count` nao apresentaram significancia (p >= 0.05).
 
-## Mutual Information (Importancia de Features)
+## 1.8 Mutual Information (Importancia de Features)
 
 O score de Mutual Information mede a dependencia estatistica entre cada feature e o target, capturando relacoes nao-lineares que a correlacao tradicional ignora. Quanto maior o score, maior o poder preditivo da variavel.
 
@@ -201,7 +295,7 @@ O score de Mutual Information mede a dependencia estatistica entre cada feature 
 
 As features com maior poder preditivo sao relacionadas ao comportamento digital (`device_distinct_emails_8w`, `email_is_free`, `keep_alive_session`) e dados de contato (`phone_mobile_valid`, `phone_home_valid`), indicando que o perfil digital do solicitante e um forte indicador de fraude.
 
-## Analise Temporal (Taxa de Fraude por Mes)
+## 1.9 Analise Temporal (Taxa de Fraude por Mes)
 
 | Mes | Taxa de Fraude |
 | --- | -------------- |
@@ -216,7 +310,7 @@ As features com maior poder preditivo sao relacionadas ao comportamento digital 
 
 A taxa de fraude apresenta uma **tendencia crescente ao longo dos meses** (de 0.87% no mes 2 para 1.47% no mes 7), sugerindo um possivel aumento na atividade fraudulenta ao longo do periodo de coleta ou sazonalidade.
 
-## Correlacoes com o Target (Spearman)
+## 1.10 Correlacoes com o Target (Spearman)
 
 | Variavel                           | Correlacao com `fraud_bool` | Direcao                                         |
 | ---------------------------------- | --------------------------- | ----------------------------------------------- |
@@ -240,9 +334,9 @@ A taxa de fraude apresenta uma **tendencia crescente ao longo dos meses** (de 0.
 
 As correlacoes sao baixas em valor absoluto (max ~0.06), o que e esperado em problemas de fraude. Isso indica que nenhuma variavel isolada e suficiente para prever fraude, sendo necessario o uso de modelos multivariados.
 
-## Analise de Risco Categorico (Taxa de Fraude por Categoria)
+## 1.11 Analise de Risco Categorico (Taxa de Fraude por Categoria)
 
-### Risco por Tipo de Pagamento (`payment_type`)
+### 1.11.1 Risco por Tipo de Pagamento (`payment_type`)
 
 | Categoria | Taxa de Fraude |
 | --------- | -------------- |
@@ -252,7 +346,7 @@ As correlacoes sao baixas em valor absoluto (max ~0.06), o que e esperado em pro
 | AA        | 0.53%          |
 | AE        | 0.35%          |
 
-### Risco por Status de Emprego (`employment_status`)
+### 1.11.2 Risco por Status de Emprego (`employment_status`)
 
 | Categoria | Taxa de Fraude |
 | --------- | -------------- |
@@ -264,7 +358,7 @@ As correlacoes sao baixas em valor absoluto (max ~0.06), o que e esperado em pro
 | CE        | 0.23%          |
 | CF        | 0.19%          |
 
-### Risco por Status de Moradia (`housing_status`)
+### 1.11.3 Risco por Status de Moradia (`housing_status`)
 
 | Categoria | Taxa de Fraude |
 | --------- | -------------- |
@@ -278,7 +372,7 @@ As correlacoes sao baixas em valor absoluto (max ~0.06), o que e esperado em pro
 
 A categoria BA de `housing_status` apresenta taxa de fraude **3.4x maior** que a media geral (3.75% vs 1.10%), sendo o segmento de maior risco em todo o dataset.
 
-### Risco por Origem da Solicitacao (`source`)
+### 1.11.4 Risco por Origem da Solicitacao (`source`)
 
 | Categoria | Taxa de Fraude |
 | --------- | -------------- |
@@ -287,7 +381,7 @@ A categoria BA de `housing_status` apresenta taxa de fraude **3.4x maior** que a
 
 Solicitacoes via TELEAPP apresentam taxa de fraude 44% maior que via INTERNET.
 
-### Risco por Sistema Operacional (`device_os`)
+### 1.11.5 Risco por Sistema Operacional (`device_os`)
 
 | Categoria | Taxa de Fraude |
 | --------- | -------------- |
@@ -301,7 +395,7 @@ Dispositivos com sistema operacional Windows apresentam a maior taxa de fraude (
 
 ---
 
-# 1. Visao Geral do Projeto
+# 2. Visao Geral do Projeto
 
 | Item                     | Descricao                                                                                                                                                                                                                                                                                             |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -396,7 +490,7 @@ fraud-sentinel/
 |   |
 |   |-- features/
 |   |   |-- __init__.py
-|   |   |-- build_features.py  # Pipeline de preprocessing (Scaler, Imputer, OneHot)
+|   |   |-- build_features.py  # Pipeline EDA-driven (EDAFeatureEngineer + Scaler + OneHot)
 |   |
 |   |-- models/
 |   |   |-- __init__.py
@@ -494,18 +588,37 @@ Fluxo interno:
 5. Executa `train_test_split` com `stratify=y` para manter proporcao de fraude
 6. Salva 4 CSVs processados
 
-### src/features/build_features.py -- Pipeline de Features
+### src/features/build_features.py -- Pipeline de Features (EDA-Driven)
 
-| Atributo    | Descricao                                                                   |
-| ----------- | --------------------------------------------------------------------------- |
-| **Funcoes** | `get_preprocessor(X)`, `process_features()`                                 |
-| **Entrada** | DataFrame X com features brutas                                             |
-| **Saida**   | `ColumnTransformer` configurado; opcionalmente `models/preprocessor.joblib` |
+| Atributo    | Descricao                                                                                |
+| ----------- | ---------------------------------------------------------------------------------------- |
+| **Classe**  | `EDAFeatureEngineer(BaseEstimator, TransformerMixin)` -- Transformer sklearn customizado |
+| **Funcoes** | `get_preprocessor(X)`, `build_pipeline(X_train, model)`, `process_features()`            |
+| **Entrada** | DataFrame X com features brutas                                                          |
+| **Saida**   | `Pipeline` completo de 3 etapas (EDAFeatureEngineer -> ColumnTransformer -> Modelo)      |
 
-Pipeline numerico: `SimpleImputer(median)` -> `RobustScaler()`
-Pipeline categorico: `SimpleImputer(constant='missing')` -> `OneHotEncoder(handle_unknown='ignore')`
+O pipeline foi reestruturado com base nos insights da Analise Exploratoria (EDA) e agora possui 3 camadas:
 
-Decisao tecnica: uso de `RobustScaler` em vez de `StandardScaler` porque dados financeiros possuem outliers extremos que distorceriam a media e desvio padrao.
+**Camada 1 -- EDAFeatureEngineer** (transformer customizado):
+
+| Transformacao            | Detalhe                                                                                                                             | Justificativa (EDA)                                                                       |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Remocao de features      | Remove `device_fraud_count` e `session_length_in_minutes`                                                                           | Variancia zero (MI=0.0001) e MI=0 com Mann-Whitney nao significativo (p=0.163)            |
+| Tratamento de sentinelas | Converte -1 para NaN e cria flags (`has_prev_address`, `has_bank_history`, `has_device_emails`)                                     | Mediana de `prev_address_months_count` = -1 indicava >50% de dados marcados como ausentes |
+| Clipping de outliers     | Clip nos percentis 1%/99% de `proposed_credit_limit`, `intended_balcon_amount`, `bank_branch_count_8w`, `prev_address_months_count` | Features com 15-24% de outliers pelo metodo IQR                                           |
+| Flags de risco           | Cria `is_high_risk_housing`, `is_high_risk_employment`, `is_high_risk_os`, `is_high_risk_payment`, `is_teleapp_source`              | Categorias com 1.5x a 3.4x a taxa media de fraude                                         |
+| Interacao digital        | Cria `digital_risk_score` = `email_is_free` \* `device_distinct_emails_8w`                                                          | Top 3 features por MI Score sao todas de comportamento digital                            |
+
+**Camada 2 -- ColumnTransformer** (preprocessamento):
+
+- Pipeline numerico: `SimpleImputer(median)` -> `RobustScaler()`
+- Pipeline categorico: `SimpleImputer(constant='missing')` -> `OneHotEncoder(handle_unknown='ignore')`
+
+**Camada 3 -- Modelo** (classificador):
+
+- O classificador especifico de cada modelo (LogReg, XGBoost, RF, etc.)
+
+Decisao tecnica: O `EDAFeatureEngineer` e um `BaseEstimator` do scikit-learn, sendo serializado junto com o modelo via `joblib.dump()`. Isso garante que as mesmas transformacoes sejam aplicadas automaticamente em treino, validacao cruzada e inferencia.
 
 ### src/models/reg_log_model.py -- Logistic Regression
 
@@ -832,6 +945,34 @@ LogReg e XGBoost usam amostra de 100k linhas para GridSearch (economia de horas 
 ## 8.5 Informacao Mutua (MI)
 
 A EDA calcula Mutual Information com `mutual_info_classif` para ranquear features por capacidade preditiva, capturando relacoes nao-lineares que correlacao de Pearson/Spearman ignora.
+
+## 8.6 EDAFeatureEngineer (Feature Engineering Orientado por Dados)
+
+O `EDAFeatureEngineer` e um transformer customizado do scikit-learn que aplica 5 transformacoes baseadas nos insights da EDA, em sequencia:
+
+```
+Dados Brutos (31 features)
+    |
+    v
+1. Remocao: -2 features (device_fraud_count, session_length_in_minutes)
+    |
+    v
+2. Sentinelas: -1 -> NaN + 3 flags binarias (has_prev_address, has_bank_history, has_device_emails)
+    |
+    v
+3. Clipping: Percentis 1%/99% em 4 features com >15% outliers
+    |
+    v
+4. Flags de Risco: +5 features binarias (housing BA, employment CC, OS windows, payment AC, source TELEAPP)
+    |
+    v
+5. Interacao Digital: +1 feature (digital_risk_score = email_is_free * device_distinct_emails_8w)
+    |
+    v
+Dados Engenheirados (38 features)
+```
+
+O transformer implementa `fit()` para aprender limites de clipping no conjunto de treino e `transform()` para aplicar todas as transformacoes. Por ser um `BaseEstimator`, e automaticamente serializado junto com o modelo.
 
 ---
 

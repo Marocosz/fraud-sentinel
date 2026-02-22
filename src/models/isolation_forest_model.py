@@ -37,7 +37,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(PROJECT_ROOT))
 
 from src.config import PROCESSED_DATA_DIR, MODELS_DIR, RANDOM_STATE, REPORTS_DIR
-from src.features.build_features import get_preprocessor
+from src.features.build_features import build_pipeline, EDAFeatureEngineer, get_preprocessor
 
 logging.basicConfig(
     level=logging.INFO,
@@ -109,16 +109,12 @@ def train_isolation_forest():
     X_train = pd.read_csv(X_train_path)
     y_train = pd.read_csv(y_train_path).values.ravel()
     
-    # 2. Pipeline
-    preprocessor = get_preprocessor(X_train)
+    # 2. Pipeline (EDA-Driven: Feature Engineering + Preprocessing + Modelo)
+    logger.info("🔬 Aplicando Feature Engineering baseado na EDA.")
     
-    # Usamos nosso Wrapper em vez do IF direto
+    # Isolation Forest usa o Wrapper, nao o classificador direto
     model = IForestWrapper(n_estimators=200, contamination=0.01, random_state=RANDOM_STATE)
-    
-    pipeline = Pipeline(steps=[
-        ('preprocessor', preprocessor),
-        ('model', model)
-    ])
+    pipeline = build_pipeline(X_train, model)
     
     logger.info("⚡ Iniciando treinamento (detecção de anomalias)...")
     # Não usamos GridSearch aqui para simplificar, pois IF é não-supervisionado

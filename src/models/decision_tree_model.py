@@ -33,7 +33,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(PROJECT_ROOT))
 
 from src.config import PROCESSED_DATA_DIR, MODELS_DIR, RANDOM_STATE, REPORTS_DIR
-from src.features.build_features import get_preprocessor
+from src.features.build_features import build_pipeline
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.StreamHandler(sys.stdout)])
 logger = logging.getLogger(__name__)
@@ -73,14 +73,12 @@ def train_decision_tree():
     X_train = pd.read_csv(X_train_path)
     y_train = pd.read_csv(y_train_path).values.ravel()
 
-    preprocessor = get_preprocessor(X_train)
+    # Pipeline (EDA-Driven: Feature Engineering + Preprocessing + Modelo)
     clf = MODEL_CONFIG["model_class"](**MODEL_CONFIG["model_params"])
     
     logger.info("❌ SMOTE Desativado. Usando class_weight='balanced'.")
-    pipeline = Pipeline(steps=[
-        ('preprocessor', preprocessor),
-        ('model', clf)
-    ])
+    logger.info("🔬 Aplicando Feature Engineering baseado na EDA.")
+    pipeline = build_pipeline(X_train, clf)
     
     cv = StratifiedKFold(n_splits=MODEL_CONFIG["cv_folds"], shuffle=True, random_state=RANDOM_STATE)
     

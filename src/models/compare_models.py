@@ -57,7 +57,7 @@ except ImportError:
     REPORTS_DIR = PROJECT_ROOT / "reports"
     RANDOM_STATE = 42
 
-from src.features.build_features import get_preprocessor
+from src.features.build_features import get_preprocessor, EDAFeatureEngineer
 
 # Configurações Globais e Constantes
 # Filtra warning específico do LightGBM quando usado em Pipeline do Scikit-Learn
@@ -177,20 +177,23 @@ def compare_algorithms():
 
     print(f"\n🏃 Rodando Cross-Validation ({CV_FOLDS} folds)...")
     
-    # Recupera o pipeline de transformação de colunas (OneHot, Scaler) definido em features/build_features.py
-    preprocessor = get_preprocessor(X_sample)
+    # Recupera o pipeline de transformacao com Feature Engineering EDA-driven
+    eda_engineer = EDAFeatureEngineer()
+    X_engineered = eda_engineer.fit_transform(X_sample)
+    preprocessor = get_preprocessor(X_engineered)
 
     for name, model in models:
         print(f"   >> Avaliando: {name}...", end=" ")
         
-        # CRÍTICO: Pipeline com Imbalanced-Learn
-        # O SMOTE (criação de dados sintéticos) deve ocorrer DENTRO do pipeline.
-        # Isso garante que ele só veja os dados de TREINO do fold atual.
-        # Se fizéssemos SMOTE fora, vazaríamos dados do teste para o treino, invalidando o resultado.
+        # CRITICO: Pipeline com Imbalanced-Learn + Feature Engineering
+        # O EDAFeatureEngineer aplica as melhorias do EDA (sentinelas, outliers, flags).
+        # O SMOTE (criacao de dados sinteticos) deve ocorrer DENTRO do pipeline.
+        # Isso garante que ele so veja os dados de TREINO do fold atual.
         pipeline = ImbPipeline(steps=[
-            ('preprocessor', preprocessor),           # 1. Trata categóricas/numéricas
-            ('smote', SMOTE(random_state=RANDOM_STATE)), # 2. Balanceia as classes artificialmente
-            ('model', model)                          # 3. Treina o modelo
+            ('eda_features', eda_engineer),                # 0. Feature Engineering EDA-driven
+            ('preprocessor', preprocessor),                # 1. Trata categoricas/numericas
+            ('smote', SMOTE(random_state=RANDOM_STATE)),   # 2. Balanceia as classes artificialmente
+            ('model', model)                               # 3. Treina o modelo
         ])
         
         # Executa a Validação Cruzada
