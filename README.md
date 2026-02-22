@@ -1,449 +1,763 @@
-# 🛡️ Fraud Sentinel - Advanced Fraud Detection System
-
-**Fraud Sentinel** é um sistema de detecção de fraudes bancárias end-to-end, projetado para lidar com datasets extremamente desbalanceados (onde fraudes representam ~1% ou menos dos dados). O projeto foca em rigor estatístico, reprodutibilidade e utilização de algoritmos de estado da arte para minimizar perdas financeiras.
+# Fraud Sentinel -- Sistema Avancado de Deteccao de Fraudes Bancarias
 
 ---
 
-## 🔬 Histórico de Experimentos (Log)
+# 1. Visao Geral do Projeto
 
-Esta seção documenta cronologicamente todos os experimentos realizados para alcançar o modelo final, detalhando a evolução das estratégias de balanceamento e otimização.
-
-### 🧪 Experimento 1: Baseline com SMOTE Agressivo (Ratio 0.5)
-
-_Nesta fase inicial, utilizamos SMOTE com ratio 0.5 e Class Weights='balanced'. O resultado mostrou alto Recall mas baixíssima Precisão (muitos falsos positivos)._
-
-| Run ID            | Modelo              | ROC-AUC | F1-Score (Classe 1) | Precision (Classe 1) | Recall (Classe 1) | Estratégia                          |
-| :---------------- | :------------------ | :------ | :------------------ | :------------------- | :---------------- | :---------------------------------- |
-| `20260217_201608` | **XGBoost**         | 0.8848  | 0.0582              | 3.0%                 | **89.2%**         | SMOTE 0.5 + Scale Pos Weight 90     |
-| `20260217_193856` | Random Forest       | 0.8754  | 0.1868              | 13.9%                | 28.5%             | SMOTE 0.5 + Class Weight 'balanced' |
-| `20260217_191942` | Logistic Regression | 0.8746  | 0.1211              | 6.7%                 | 65.3%             | SMOTE 0.5 + Class Weight 'balanced' |
-| `20260217_192103` | Decision Tree       | 0.8315  | 0.1322              | 7.7%                 | 46.4%             | SMOTE 0.5 + Class Weight 'balanced' |
-
-> **Diagnóstico:** O uso combinado de SMOTE agressivo (0.5) com pesos de classe gerou uma "Dupla Penalização", fazendo os modelos superestimarem o risco e gerarem excesso de alarmes falsos (Precision < 15%).
+| Item                     | Descricao                                                                                                                                                                                                                                                                                             |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Nome**                 | Fraud Sentinel                                                                                                                                                                                                                                                                                        |
+| **Objetivo Principal**   | Desenvolver um pipeline completo de Machine Learning para detectar fraudes em aberturas de contas bancarias, priorizando a maximizacao do Recall (capturar o maximo de fraudes) com controle de Precision (minimizar falsos alarmes).                                                                 |
+| **Problema que Resolve** | Fraudes bancarias na abertura de contas causam prejuizos financeiros massivos. O sistema automatiza a triagem de solicitacoes, classificando-as como legitimas ou fraudulentas com base em padroes historicos de comportamento e atributos sociodemograficos.                                         |
+| **Publico-Alvo**         | Cientistas de dados, engenheiros de ML, analistas de fraude e instituicoes financeiras que necessitam de um motor de decisao anti-fraude baseado em dados. Tambem serve como projeto de portfolio academico em Data Science.                                                                          |
+| **Contexto de Uso**      | O sistema opera sobre o dataset Bank Account Fraud (BAF) Suite, publicado no NeurIPS 2022, que simula dados reais de aberturas de conta com rotulagem binaria (0 = legitima, 1 = fraude). A taxa de fraude e extremamente baixa (~1%), exigindo tecnicas especializadas de balanceamento e avaliacao. |
+| **Tarefa de Mineracao**  | Classificacao Binaria Supervisionada                                                                                                                                                                                                                                                                  |
+| **Metodologia**          | CRISP-DM (Cross-Industry Standard Process for Data Mining)                                                                                                                                                                                                                                            |
 
 ---
 
-### 🧪 Experimento 2: SMOTE Reduzido (Ratio 0.3-0.4) + Threshold Tuning
+# 2. Arquitetura Geral
 
-_Tentativa de correção reduzindo a geração de dados sintéticos e ajustando o limiar de decisão._
+## 2.1 Tipo de Arquitetura
 
-| Run ID            | Modelo              | ROC-AUC | F1-Score (Classe 1) | Precision (Classe 1) | Recall (Classe 1) | Threshold Otimizado |
-| :---------------- | :------------------ | :------ | :------------------ | :------------------- | :---------------- | :------------------ |
-| `20260217_205713` | **Random Forest**   | 0.8795  | 0.1709              | 19.7%                | 15.1%             | > 0.34              |
-| `20260217_204326` | Logistic Regression | 0.8746  | 0.1537              | 8.9%                 | 55.0%             | > 0.79              |
-| `20260217_204434` | Decision Tree       | 0.8266  | 0.1607              | 12.8%                | 21.4%             | > 0.50              |
+O Fraud Sentinel adota uma **arquitetura modular orientada a pipeline**, organizada em camadas funcionais independentes. Cada camada possui responsabilidade unica e se comunica com as demais exclusivamente atraves de artefatos persistidos em disco (arquivos CSV, PKL, JSON e TXT). Essa abordagem garante reprodutibilidade, rastreabilidade e desacoplamento entre etapas.
 
-> **Diagnóstico:** A precisão melhorou marginalmente, mas o Recall caiu drasticamente em alguns casos. A estratégia de SMOTE ainda parecia introduzir ruído.
+## 2.2 Diagrama da Arquitetura
 
----
+```
++------------------------------------------------------------------+
+|                        main.py (MAESTRO)                         |
+|            Orquestrador Central / CLI com argparse               |
++------------------------------------------------------------------+
+         |              |              |              |
+         v              v              v              v
++----------------+ +----------+ +-----------+ +-------------+
+| make_dataset   | | EDA      | | compare   | | train_*     |
+| (Data Eng.)    | | Reporter | | _models   | | _model.py   |
++----------------+ +----------+ +-----------+ +-------------+
+    |                  |              |              |
+    v                  v              v              v
++--------+      +-----------+  +-----------+  +------------+
+| data/  |      | reports/  |  | reports/  |  | models/    |
+|processed|     | figures/  |  | data/     |  | *.pkl      |
+| *.csv  |      | *.png     |  | *.csv     |  | *.txt      |
++--------+      +-----------+  +-----------+  +------------+
+                                                    |
+                                    +---------------+--------+
+                                    v                        v
+                             +------------+          +-------------+
+                             | visualize  |          | predict     |
+                             | .py        |          | _model.py   |
+                             | (Avaliacao)|          | (Inferencia)|
+                             +------------+          +-------------+
+```
 
-### 🧪 Experimento 3: Cost-Sensitive Learning (Sem SMOTE) - **FINAL**
+## 2.3 Fluxo Macro (Requisicao ate Resposta)
 
-_Removemos o SMOTE completamente e focamos puramente em Pesos de Classe (Class Weights) combinados com Otimização de Threshold via F1-Score._
+```
+1. Entrada: data/raw/Base.csv (Dataset BAF Suite)
+2. make_dataset.py  --> Otimiza memoria, split estratificado --> data/processed/
+3. generate_eda_report.py --> Analise exploratoria --> reports/
+4. compare_models.py (opcional) --> Benchmark de algoritmos --> reports/
+5. *_model.py --> Treinamento com GridSearchCV + Threshold Tuning --> models/*.pkl
+6. visualize.py --> Avaliacao no blind test set --> reports/figures/
+7. predict_model.py (opcional) --> Simulacao de producao --> Console (decisao)
+```
 
-| Run ID            | Modelo              | ROC-AUC    | F1-Score (Macro) | Precision (Weighted) | Recall (Weighted) | Threshold Otimizado |
-| :---------------- | :------------------ | :--------- | :--------------- | :------------------- | :---------------- | :------------------ |
-| `20260217_212224` | **XGBoost 🏆**      | **0.8806** | **0.5753**       | **0.9822**           | **0.9869**        | **> 0.26**          |
-| -                 | Random Forest       | 0.8795     | 0.5814           | 0.9818               | 0.9839            | > 0.34              |
-| -                 | Logistic Regression | 0.8746     | 0.5594           | 0.9847               | 0.9332            | > 0.79              |
+## 2.4 Separacao de Camadas
 
-> **Conclusão:** Esta foi a estratégia vencedora. O XGBoost sem SMOTE, mas com `scale_pos_weight=90` e corte de decisão em `0.26`, entregou o melhor equilíbrio operacional.
-
----
-
-### 🧪 Experimento 4: Refinamento de Hiperparâmetros (Redução de Complexidade)
-
-_Nesta fase, simplificamos os modelos (menor profundidade e número de estimadores) para reduzir overfitting e testamos novos limiares de decisão, sem uso de SMOTE._
-
-| Run ID            | Modelo              | ROC-AUC    | F1-Score (Macro) | Precision (Weighted) | Recall (Weighted) | Threshold Otimizado |
-| :---------------- | :------------------ | :--------- | :--------------- | :------------------- | :---------------- | :------------------ |
-| `20260218_105559` | **XGBoost 🏆**      | **0.8930** | **0.4967**       | **0.9869**           | **0.8232**        | **> 0.88**          |
-| `20260218_102718` | Random Forest       | 0.8790     | 0.5156           | 0.9859               | 0.8652            | > 0.81              |
-| `20260218_100725` | Logistic Regression | 0.8759     | 0.4866           | 0.9866               | 0.8048            | > 0.90              |
-| `20260218_101421` | Decision Tree       | 0.8268     | 0.4847           | 0.9854               | 0.8100            | > 0.90              |
-
-> **Diagnóstico:** O XGBoost atingiu seu melhor ROC-AUC (0.8930). O ajuste de threshold resultou em um perfil muito mais agressivo na detecção de fraudes (maior Recall), embora com impacto no F1-Score devido ao aumento de falsos positivos (trade-off aceito para maior segurança).
-
----
-
-### 🧪 Experimento 5: Redes Neurais e Detecção de Anomalias
-
-_Exploramos arquiteturas alternativas: MLP (Multi-Layer Perceptron) para capturar não-linearidades complexas e Isolation Forest para detecção não-supervisionada._
-
-| Run ID            | Modelo               | ROC-AUC | F1-Score (Macro) | Precision (Weighted) | Recall (Weighted) | Threshold Otimizado |
-| :---------------- | :------------------- | :------ | :--------------- | :------------------- | :---------------- | :------------------ |
-| `20260218_134225` | **MLP (Neural Net)** | 0.8821  | 0.5125           | 0.9832               | 0.9889            | > 0.14              |
-| `20260218_134806` | Isolation Forest     | 0.5339  | 0.5017           | 0.9783               | 0.9794            | > 0.57              |
-
-> **Conclusão:**
->
-> - **MLP:** Mostrou excelente potencial (ROC-AUC 0.8821), competindo diretamente com os modelos de árvore (Random Forest/XGBoost). No entanto, o Recall para a classe minoritária (fraude) foi muito baixo (1.5%) com a configuração atual, indicando necessidade de ajuste nos pesos de classe.
-> - **Isolation Forest:** Teve desempenho próximo ao aleatório (ROC-AUC ~0.53). Isso sugere que as fraudes neste dataset não são "anomalias" geométricas óbvias que distanciam muito do padrão normal, ou que o método precisa de uma engenharia de features específica. O XGBoost continua sendo a melhor escolha.
-
----
-
-## 🚀 Resultados dos Modelos (Benchmark Final)
-
-Após rigorosa otimização de hiperparâmetros e ajuste fino de limiares de decisão (Threshold Tuning), os modelos atingiram os seguintes resultados nos dados de validação:
-
-| Modelo                     | ROC-AUC    | F1-Score   | Observação Crítica                                                               |
-| :------------------------- | :--------- | :--------- | :------------------------------------------------------------------------------- |
-| **🥇 XGBoost**             | **0.8930** | **0.4967** | Novo recorde de ROC-AUC. Modelo simplificado (100 árvores) e altamente sensível. |
-| **🥈 Random Forest**       | 0.8790     | 0.5156     | Consistente. Redução de complexidade (Depth 10) manteve performance estatística. |
-| **🥉 Logistic Regression** | 0.8759     | 0.4866     | Baseline extremamente estável e robusto.                                         |
-| **Decision Tree**          | 0.8268     | 0.4847     | O mais fraco, mas útil para explicar regras simples.                             |
-
-> **Nota Técnica:** O F1-Score pode parecer "baixo" (0.57), mas em detecção de fraude (onde a classe positiva é 1%), esse valor é **excelente**. Um modelo aleatório teria F1 próximo de 0.02.
+| Camada                 | Diretorio            | Responsabilidade                                                                  |
+| ---------------------- | -------------------- | --------------------------------------------------------------------------------- |
+| Configuracao           | `src/config.py`      | Caminhos, constantes globais, seed aleatoria                                      |
+| Engenharia de Dados    | `src/data/`          | Carga, otimizacao de memoria, split estratificado                                 |
+| Engenharia de Features | `src/features/`      | Preprocessamento (Scaler, Imputer, OneHot), SMOTE                                 |
+| Modelos                | `src/models/`        | Treinamento, otimizacao de hiperparametros, threshold tuning, predicao, benchmark |
+| Visualizacao           | `src/visualization/` | EDA automatizada, avaliacao final, graficos                                       |
+| Orquestracao           | `main.py`            | Pipeline end-to-end via CLI                                                       |
+| Testes                 | `tests/`             | Stubs de testes unitarios (nao implementados)                                     |
 
 ---
 
-## 🏆 Modelos Treinados e Artefatos
+# 3. Estrutura de Diretorios
 
-Todos os modelos treinados são salvos automaticamente na pasta `models/` com versionamento e logs de execução.
+```
+fraud-sentinel/
+|-- main.py                    # Orquestrador principal (CLI)
+|-- requirements.txt           # Dependencias do projeto
+|-- ideia_inicial.md           # Documento de concepcao e historico de experimentos
+|-- .gitignore                 # Regras de exclusao do Git
+|-- .env                       # Variaveis de ambiente (vazio)
+|
+|-- src/                       # Codigo-fonte principal
+|   |-- __init__.py            # Torna src um pacote Python
+|   |-- config.py              # Configuracoes globais centralizadas
+|   |
+|   |-- data/
+|   |   |-- __init__.py
+|   |   |-- make_dataset.py    # Carga, otimizacao e split de dados
+|   |
+|   |-- features/
+|   |   |-- __init__.py
+|   |   |-- build_features.py  # Pipeline de preprocessing (Scaler, Imputer, OneHot)
+|   |
+|   |-- models/
+|   |   |-- __init__.py
+|   |   |-- reg_log_model.py       # Treinamento Logistic Regression
+|   |   |-- decision_tree_model.py # Treinamento Decision Tree
+|   |   |-- random_forest_model.py # Treinamento Random Forest
+|   |   |-- xgboost_model.py       # Treinamento XGBoost
+|   |   |-- mlp_model.py           # Treinamento MLP (Rede Neural)
+|   |   |-- isolation_forest_model.py # Treinamento Isolation Forest
+|   |   |-- compare_models.py      # Benchmark comparativo de algoritmos
+|   |   |-- predict_model.py       # Simulacao de inferencia em producao
+|   |   |-- force_precision.py     # Ajuste fino de threshold por Precision-alvo
+|   |
+|   |-- visualization/
+|       |-- __init__.py
+|       |-- generate_eda_report.py # EDA automatizada completa
+|       |-- visualize.py          # Avaliacao final com graficos
+|
+|-- data/
+|   |-- raw/                   # Dataset bruto (Base.csv) -- nao versionado
+|   |-- processed/             # Artefatos processados (X_train, X_test, etc.)
+|   |-- external/              # Dados externos (reservado)
+|
+|-- models/                    # Modelos serializados (.pkl) e parametros (.txt)
+|
+|-- reports/
+|   |-- data/                  # CSVs de metricas (qualidade, correlacao, MI, etc.)
+|   |-- figures/               # Graficos PNG (EDA, avaliacao, comparacao)
+|   |-- eda_summary.txt        # Relatorio textual consolidado da EDA
+|   |-- model_comparison_report.txt # Relatorio do benchmark
+|   |-- experiments_log.json   # Historico unificado de todos os experimentos
+|   |-- sweetviz_report.html   # Dashboard interativo HTML
+|
+|-- tests/                     # Stubs de testes (nao implementados)
+|
+|-- venvmine/                  # Ambiente virtual Python (nao versionado)
+```
 
-### 1. XGBoost (O Campeão)
+## 3.1 Descricao Detalhada de Cada Arquivo
 
-- **Arquivo do Modelo:** `models/xgb_best_model.pkl`
-- **Melhores Hiperparâmetros:**
-  - `learning_rate`: 0.1
-  - `max_depth`: 3 (Árvores rasas)
-  - `n_estimators`: 100 (Reduzido de 200 para evitar overfitting)
-  - `scale_pos_weight`: 90
-- **Threshold Otimizado:** `> 0.88` (Alta especificidade na probabilidade).
+### main.py -- Orquestrador Principal
 
-### 2. Random Forest
+| Atributo         | Descricao                                                                               |
+| ---------------- | --------------------------------------------------------------------------------------- |
+| **Funcao**       | Orquestra todo o pipeline na ordem correta via CLI (argparse)                           |
+| **Funcoes**      | `reset_project_artifacts()`, `main()`                                                   |
+| **Entradas**     | Argumentos CLI: `--no-reset`, `--skip-eda`, `--compare-models`, `--predict`, `--models` |
+| **Saidas**       | Execucao sequencial de todos os modulos                                                 |
+| **Dependencias** | Todos os modulos em `src/`                                                              |
 
-- **Arquivo do Modelo:** `models/rf_best_model.pkl`
-- **Melhores Hiperparâmetros:**
-  - `n_estimators`: 200
-  - `max_depth`: 10 (Reduzido de 20)
-  - `class_weight`: 'balanced'
-- **Threshold Otimizado:** `> 0.81`
+Flags disponiveis:
 
-### 3. Logistic Regression
+| Flag               | Efeito                                                |
+| ------------------ | ----------------------------------------------------- |
+| `--no-reset`       | Pula a limpeza de artefatos antigos                   |
+| `--skip-eda`       | Pula a analise exploratoria                           |
+| `--compare-models` | Executa o benchmark de algoritmos                     |
+| `--predict`        | Roda simulacao de inferencia ao final                 |
+| `--models`         | Seleciona modelos especificos (ex: `--models xgb,rf`) |
 
-- **Arquivo do Modelo:** `models/logreg_best_model.pkl`
-- **Melhores Hiperparâmetros:**
-  - `C`: 0.01
-  - `penalty`: 'l2'
-  - `class_weight`: 'balanced'
+Identificadores de modelos: `logreg`, `dt`, `rf`, `xgb`, `mlp`, `if`.
 
-### 4. MLP (Rede Neural)
+### src/config.py -- Configuracoes Globais
 
-- **Arquivo do Modelo:** `models/mlp_best_model.pkl`
-- **Melhores Hiperparâmetros:**
-  - `hidden_layer_sizes`: (50, 25) (Duas camadas ocultas)
-  - `activation`: 'tanh'
-  - `alpha`: 0.0001 (Regularização leve)
-  - `learning_rate_init`: 0.001
-- **Threshold Otimizado:** `> 0.14`
+Define todas as constantes compartilhadas pelo sistema:
 
-### 5. Isolation Forest (Experimental)
+| Constante            | Valor               | Finalidade                     |
+| -------------------- | ------------------- | ------------------------------ |
+| `PROJECT_ROOT`       | Raiz do projeto     | Base para todos os caminhos    |
+| `RAW_DATA_PATH`      | `data/raw/Base.csv` | Caminho do dataset bruto       |
+| `PROCESSED_DATA_DIR` | `data/processed/`   | Saida do make_dataset          |
+| `MODELS_DIR`         | `models/`           | Armazenamento de modelos       |
+| `FIGURES_DIR`        | `reports/figures/`  | Saida de graficos              |
+| `RANDOM_STATE`       | 42                  | Semente para reprodutibilidade |
+| `TEST_SIZE`          | 0.2                 | Proporcao do test split (20%)  |
+| `TARGET_COL`         | `fraud_bool`        | Nome da coluna alvo            |
 
-- **Arquivo do Modelo:** `models/if_best_model.pkl`
-- **Resultados:** Baixa performance. Mantido apenas para fins de comparação acadêmica de detecção de anomalias.
+Cria automaticamente diretorios inexistentes na importacao.
+
+### src/data/make_dataset.py -- Engenharia de Dados
+
+| Atributo     | Descricao                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------- |
+| **Funcoes**  | `optimize_memory_usage(df)`, `load_and_split_data()`                                        |
+| **Entrada**  | `data/raw/Base.csv`                                                                         |
+| **Saida**    | `data/processed/{X_train, X_test, y_train, y_test}.csv`                                     |
+| **Excecoes** | `FileNotFoundError` se Base.csv nao existir; `ValueError` se coluna alvo nao for encontrada |
+
+Fluxo interno:
+
+1. Carrega CSV bruto com `pd.read_csv`
+2. Valida existencia da coluna target (fallback para `is_fraud`)
+3. Aplica downcasting de tipos (`float64`->`float32`, `int64`->`int8`) para otimizar RAM
+4. Separa features (X) e target (y)
+5. Executa `train_test_split` com `stratify=y` para manter proporcao de fraude
+6. Salva 4 CSVs processados
+
+### src/features/build_features.py -- Pipeline de Features
+
+| Atributo    | Descricao                                                                   |
+| ----------- | --------------------------------------------------------------------------- |
+| **Funcoes** | `get_preprocessor(X)`, `process_features()`                                 |
+| **Entrada** | DataFrame X com features brutas                                             |
+| **Saida**   | `ColumnTransformer` configurado; opcionalmente `models/preprocessor.joblib` |
+
+Pipeline numerico: `SimpleImputer(median)` -> `RobustScaler()`
+Pipeline categorico: `SimpleImputer(constant='missing')` -> `OneHotEncoder(handle_unknown='ignore')`
+
+Decisao tecnica: uso de `RobustScaler` em vez de `StandardScaler` porque dados financeiros possuem outliers extremos que distorceriam a media e desvio padrao.
+
+### src/models/reg_log_model.py -- Logistic Regression
+
+| Atributo                           | Descricao                                                                                        |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------ |
+| **Funcao principal**               | `train_logistic_regression()`                                                                    |
+| **Estrategia de desbalanceamento** | `class_weight='balanced'` (sem SMOTE)                                                            |
+| **Grid Search**                    | `C`: [0.01, 0.1, 1, 10]; `penalty`: ['l1', 'l2']                                                 |
+| **Otimizacao**                     | Amostra estratificada de 100k linhas para GridSearch; retreino final com dataset completo        |
+| **Saidas**                         | `logreg_best_model.pkl`, `logreg_threshold.txt`, `best_model_params.txt`, `experiments_log.json` |
+
+### src/models/decision_tree_model.py -- Decision Tree
+
+| Atributo             | Descricao                                                                                 |
+| -------------------- | ----------------------------------------------------------------------------------------- |
+| **Funcao principal** | `train_decision_tree()`                                                                   |
+| **Grid Search**      | `max_depth`: [5, 10, None]; `min_samples_split`: [2, 5]; `criterion`: ['gini', 'entropy'] |
+| **Saidas**           | `dt_best_model.pkl`, `dt_threshold.txt`, `dt_best_model_params.txt`                       |
+
+### src/models/random_forest_model.py -- Random Forest
+
+| Atributo             | Descricao                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| **Funcao principal** | `train_random_forest()`                                                              |
+| **Grid Search**      | `n_estimators`: [100, 200]; `max_depth`: [10, 20, None]; `min_samples_split`: [2, 5] |
+| **Nota**             | RF usa `n_jobs=-1` internamente; GridSearch usa `n_jobs=1` para evitar conflito      |
+| **Saidas**           | `rf_best_model.pkl`, `rf_threshold.txt`, `rf_best_model_params.txt`                  |
+
+### src/models/xgboost_model.py -- XGBoost
+
+| Atributo             | Descricao                                                                     |
+| -------------------- | ----------------------------------------------------------------------------- |
+| **Funcao principal** | `train_xgboost()`                                                             |
+| **Estrategia**       | `scale_pos_weight=90` para compensar desbalanceamento                         |
+| **Grid Search**      | `learning_rate`: [0.01, 0.1]; `n_estimators`: [100, 200]; `max_depth`: [3, 6] |
+| **Otimizacao**       | Amostra estratificada de 100k para GridSearch; retreino no dataset completo   |
+| **Saidas**           | `xgb_best_model.pkl`, `xgb_threshold.txt`, `xgb_best_model_params.txt`        |
+
+### src/models/mlp_model.py -- MLP Neural Network
+
+| Atributo             | Descricao                                                                                                                                          |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Funcao principal** | `train_mlp()`                                                                                                                                      |
+| **Grid Search**      | `hidden_layer_sizes`: [(50,), (100,), (50,25)]; `activation`: ['relu','tanh']; `alpha`: [0.0001, 0.001, 0.01]; `learning_rate_init`: [0.001, 0.01] |
+| **Nota**             | Usa `early_stopping=True` com 10% de validacao interna                                                                                             |
+| **Saidas**           | `mlp_best_model.pkl`, `mlp_threshold.txt`                                                                                                          |
+
+### src/models/isolation_forest_model.py -- Isolation Forest
+
+| Atributo             | Descricao                                                                                                       |
+| -------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **Funcao principal** | `train_isolation_forest()`                                                                                      |
+| **Classe auxiliar**  | `IForestWrapper(BaseEstimator, ClassifierMixin)` -- Wrapper que converte `decision_function` em `predict_proba` |
+| **Nota**             | Algoritmo nao-supervisionado adaptado para pipeline supervisionado. Sem GridSearch.                             |
+| **Parametros fixos** | `n_estimators=200`, `contamination=0.01`                                                                        |
+| **Saidas**           | `if_best_model.pkl`, `if_threshold.txt`                                                                         |
+
+A classe `IForestWrapper` inverte o score de anomalia (`-decision_function`), normaliza com `MinMaxScaler` para [0,1] e empacota no formato `predict_proba` padrao `(n_samples, 2)`.
+
+### src/models/compare_models.py -- Benchmark de Algoritmos
+
+| Atributo             | Descricao                                                                                                                                           |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Funcao principal** | `compare_algorithms()`                                                                                                                              |
+| **Competidores**     | LogReg, DecisionTree, RandomForest, GradientBoosting, HistGradientBoosting, ExtraTrees, AdaBoost, XGBoost, LightGBM (opcional), CatBoost (opcional) |
+| **Metodologia**      | Stratified 5-Fold CV com pipeline SMOTE _dentro_ de cada fold                                                                                       |
+| **Metricas**         | ROC-AUC, Recall, Precision, F1-Score                                                                                                                |
+| **Saidas**           | `models_comparison_results.csv`, `model_comparison_report.txt`, `model_comparison_metrics.png`                                                      |
+
+### src/models/predict_model.py -- Simulacao de Producao
+
+| Atributo                     | Descricao                                                                                    |
+| ---------------------------- | -------------------------------------------------------------------------------------------- |
+| **Funcoes**                  | `load_inference_artifacts()`, `load_threshold()`, `explain_prediction()`, `predict_sample()` |
+| **Motor de decisao**         | Score > Threshold -> BLOQUEIO; Score > Threshold\*0.8 -> REVISAO MANUAL; Abaixo -> APROVADO  |
+| **Estrategia de amostragem** | Forca 50% de fraude na demonstracao para visualizacao                                        |
+
+### src/models/force_precision.py -- Ajuste de Precision-Alvo
+
+| Atributo             | Descricao                                                               |
+| -------------------- | ----------------------------------------------------------------------- |
+| **Funcao principal** | `enforce_precision_target(target_precision, model_filename)`            |
+| **Objetivo**         | Encontrar o menor threshold que garanta Precision >= alvo (padrao: 20%) |
+| **Metodologia**      | Varredura da curva Precision-Recall no conjunto de teste                |
+| **Saidas**           | Sobrescreve `*_threshold.txt`, gera `precision_optimization_curve.png`  |
+
+### src/visualization/generate_eda_report.py -- EDA Automatizada
+
+| Atributo              | Descricao                                                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Classe**            | `EDAReporter`                                                                                                                                                                                                                                                                                                                                                                                |
+| **Metodos**           | `load_data`, `generate_structure_report`, `analyze_categorical_domain`, `analyze_outliers`, `generate_statistics_report`, `perform_statistical_tests`, `calculate_mutual_information`, `plot_comparative_boxplots`, `plot_temporal_analysis`, `plot_target_distribution`, `plot_correlations`, `plot_all_histograms`, `plot_categorical_risks`, `generate_interactive_report`, `save_report` |
+| **Artefatos gerados** | `data_quality.csv`, `outliers_iqr.csv`, `statistical_tests_mann_whitney.csv`, `mutual_information_scores.csv`, `descriptive_statistics.csv`, `correlation_matrix.csv`, `sweetviz_report.html`, `eda_summary.txt`, 7+ graficos PNG                                                                                                                                                            |
+
+### src/visualization/visualize.py -- Avaliacao Final
+
+| Atributo         | Descricao                                                               |
+| ---------------- | ----------------------------------------------------------------------- |
+| **Funcoes**      | `plot_coefficients(model, feature_names)`, `evaluate(model_name)`       |
+| **Graficos**     | Matriz de Confusao, Curva ROC, Feature Importance (coeficientes)        |
+| **Persistencia** | Atualiza `experiments_log.json` com metricas de avaliacao no blind test |
 
 ---
 
-## 🎯 Objetivo do Projeto
+# 4. Fluxos Detalhados
 
-O objetivo principal é desenvolver um modelo preditivo capaz de distinguir transações legítimas de fraudulentas com alta precisão, priorizando a **maximização do Recall** (detectar o máximo de fraudes possível) sem prejudicar excessivamente a experiência do usuário (controle de Falsos Positivos via Precision).
+## 4.1 Fluxo Principal do Sistema
 
-O sistema segue o ciclo de vida padrão da Ciência de Dados (CRISP-DM), com ênfase em:
+```
+[Usuario] --> python main.py
+    |
+    v
+[reset_project_artifacts]
+    Limpa data/processed/*.csv (exceto .gitkeep)
+    |
+    v
+[load_and_split_data]
+    Le data/raw/Base.csv
+    Otimiza tipos (float64->float32, int64->int8)
+    Valida coluna target (fraud_bool ou is_fraud)
+    Split 80/20 estratificado
+    Salva X_train.csv, X_test.csv, y_train.csv, y_test.csv
+    |
+    v
+[EDAReporter.run] (se --skip-eda NAO ativo)
+    Le data/raw/Base.csv
+    Gera metricas de qualidade, testes estatisticos, graficos
+    Salva em reports/
+    |
+    v
+[compare_algorithms] (se --compare-models ativo)
+    Le data/processed/X_train.csv, y_train.csv
+    Amostra 50k linhas estratificadas
+    Roda 5-Fold CV com SMOTE para 8-10 algoritmos
+    Gera ranking e graficos
+    |
+    v
+[Para cada modelo selecionado (--models)]:
+    [train_*()]
+        Le X_train.csv, y_train.csv
+        Cria preprocessor via get_preprocessor()
+        Monta Pipeline: preprocessor -> modelo
+        GridSearchCV com StratifiedKFold (3 folds)
+        Retreina no dataset completo com melhores params
+        Threshold Tuning (maximiza F1 na curva PR)
+        Salva modelo.pkl, threshold.txt, params.txt
+        Registra em experiments_log.json
+    [evaluate()]
+        Le X_test.csv, y_test.csv
+        Le modelo.pkl
+        Gera predicoes e probabilidades
+        Calcula metricas (AUC, F1, Precision, Recall)
+        Gera Matriz de Confusao, Curva ROC
+        Atualiza experiments_log.json
+    |
+    v
+[predict_sample] (se --predict ativo)
+    Le modelo.pkl e threshold.txt
+    Sorteia transacoes do X_test
+    Aplica motor de decisao (BLOQUEIO/REVISAO/APROVADO)
+    Imprime resultado detalhado
+```
 
-1.  **Entendimento Profundo dos Dados**: Testes de hipótese e validação estatística.
-2.  **Engenharia de Features**: Seleção baseada em ganho de informação (Mutual Information).
-3.  **Benchmarking Rigoroso**: Validação cruzada estratificada para evitar _overfitting_.
+## 4.2 Fluxo de Treinamento de Modelo (Generico)
 
----
+```
+train_*():
+    1. run_id = timestamp atual
+    2. X_train = pd.read_csv("data/processed/X_train.csv")
+    3. y_train = pd.read_csv("data/processed/y_train.csv").ravel()
+    4. preprocessor = get_preprocessor(X_train)  # Detecta tipos, monta pipelines
+    5. clf = ModelClass(**params)
+    6. pipeline = Pipeline([preprocessor, clf])
+    7. [Opcional: Amostra 100k para GridSearch]
+    8. GridSearchCV(pipeline, param_grid, scoring='roc_auc', cv=3)
+    9. grid_search.fit(X_sample, y_sample)
+   10. final_model = grid_search.best_estimator_
+   11. final_model.fit(X_train, y_train)  # Retreino no completo
+   12. joblib.dump(final_model, "*_best_model.pkl")
+   13. joblib.dump(final_model, "model_*_{run_id}.pkl")  # Versionado
+   14. y_proba = final_model.predict_proba(X_train)[:,1]
+   15. precision_recall_curve --> argmax(F1) --> best_threshold
+   16. Salva threshold.txt, params.txt
+   17. Appenda experiment em experiments_log.json
+```
 
-## 🛠️ Módulo 0: Engenharia de Dados (`make_dataset.py`)
+## 4.3 Fluxo de Inferencia (Predicao)
 
-A base de tudo. Este script não apenas "corta" os dados, ele prepara o terreno para que modelos de IA rodem sem estourar a memória RAM.
+```
+predict_sample(model_name, n_samples):
+    1. model = joblib.load("models/{model_name}_best_model.pkl")
+    2. threshold = float(open("{model_name}_threshold.txt").read())
+    3. X_test, y_test = carregar dados de teste
+    4. Seleciona amostra balanceada (50% fraude, 50% legit)
+    5. Para cada transacao:
+       a. proba = model.predict_proba(transacao)[0,1]
+       b. Se proba > threshold:       BLOQUEIO
+          Se proba > threshold * 0.8: REVISAO MANUAL
+          Senao:                       APROVADO
+       c. Compara com gabarito (y_test)
+```
 
-### ⚙️ Funcionalidades Chave
+## 4.4 Fluxo de Tratamento de Erros
 
-- **Otimização de Memória (Downcasting)**:
-  - Converte automaticamente tipos pesados (`float64`, `int64`) para versões leves (`float32`, `int8`) sem perder informação.
-  - _Resultado:_ Redução significativa no tamanho do dataset em memória, crítico para processar milhões de transações de fraude.
-- **Split Estratificado**:
-  - Garante matematicamente que a proporção de fraudes (~1%) seja idêntica nos dados de Treino e Teste. Evita que o Teste fique "fácil demais" ou "difícil demais" por sorte.
-- **Validação de Schema**:
-  - Verifica se as colunas críticas (Target) existem antes de prosseguir, evitando erros silenciosos no futuro.
+Os erros sao tratados em 3 niveis:
 
-### 📂 Artefatos Gerados
+1. **Importacao**: Bloco try/except global em `main.py` que aborta com `sys.exit(1)` se modulos estiverem faltando
+2. **Dados**: `FileNotFoundError` se CSVs nao existirem; `ValueError` se coluna target nao for encontrada
+3. **Modelos**: Fallback de threshold para 0.5 se `*_threshold.txt` nao existir
 
-Ao final da execução, a pasta `data/processed/` conterá os dados prontos para consumo pelos modelos:
+## 4.5 Fluxo de Logs
 
-- **`X_train.csv`**: Features (variáveis explicativas) para o treinamento dos modelos.
-- **`y_train.csv`**: Target (alvo: 0 ou 1) correspondente ao treino.
-- **`X_test.csv`**: Features reservadas (blind set) para validação final. NUNCA usadas no treino.
-- **`y_test.csv`**: Target correspondente ao teste.
-
----
-
-## 📊 Módulo 1: Análise Exploratória Automatizada (`generate_eda_report.py`)
-
-Este script funciona como um "Raio-X" completo dos dados. Ao invés de apenas plotar gráficos aleatórios, ele gera artefatos de dados (CSVs e HTML) para responder perguntas de negócio.
-
-### 📂 Artefatos Gerados e Explicação Detalhada
-
-Ao rodar este script, a pasta `reports/` é populada com:
-
-#### 1. Relatório Interativo (`sweetviz_report.html`)
-
-Um dashboard HTML offline gerado pela biblioteca **Sweetviz**.
-
-- **O que mostra:** Compara a distribuição de todas as variáveis lado a lado (Fraude vs Legítimo).
-- **Para que serve:** Permite ver visualmente diferenças de comportamento (ex: "Fraudes tendem a ocorrer mais em contas recém-criadas?"). Mostra correlações e valores faltantes de forma interativa.
-
-#### 2. Tabelas de Dados (`reports/data/*.csv`)
-
-Arquivos estruturados para persistência e análise quantitativa:
-
-- **`data_quality.csv`**:
-  - **Conteúdo:** Tipos de dados, contagem de nulos, percentual de nulos e cardinalidade (valores únicos).
-  - **Uso:** Identificar "sujeira" nos dados. Ex: Colunas com 99% de nulos devem ser descartadas.
-- **`outliers_iqr.csv`**:
-  - **Conteúdo:** Quantidade e porcentagem de outliers detectados pelo método IQR (Interquartile Range).
-  - **Uso:** Decidir estratégia de tratamento (capping, remoção ou uso de modelos robustos a outliers como Árvores).
-- **`statistical_tests_mann_whitney.csv`**:
-  - **Conteúdo:** Resultado do teste de hipótese Mann-Whitney U.
-  - **Interpretação:** Se `p-value < 0.05`, a diferença entre o comportamento de fraudadores e clientes genuínos é estatisticamente significativa naquela variável.
-  - **Valor:** Validação científica de que a feature é útil.
-- **`mutual_information_scores.csv`**:
-  - **Conteúdo:** Ranking de importância das features calculado via Entropia/Information Gain.
-  - **Diferencial:** Captura relações não-lineares que a correlação comum ignora. As features no topo dessa lista são os melhores "sinais" de fraude.
-- **`descriptive_statistics.csv`**:
-  - **Conteúdo:** Média, desvio padrão, mínimo, máximo e quartis.
-  - **Uso:** Entender a escala dos dados (ex: valores monetários variam de 10 a 1 milhão?).
-- **`correlation_matrix.csv`**:
-  - **Conteúdo:** Matriz de correlação de Spearman.
-  - **Uso:** Detectar multicolinearidade (variáveis redundantes que podem confundir modelos lineares).
-
-#### 3. Visualizações Estáticas (`reports/figures/eda/*.png`)
-
-- **Comparativo de Boxplots:** Mostra a dispersão e outliers separando as classes. Usa escala logarítmica para visualizar valores distorcidos.
-- **Matriz de Correlação:** Heatmap para identificar visualmente variáveis correlacionadas.
-- **Risco Categórico:** Gráficos de barra mostrando a probabilidade de fraude por categoria (ex: Risco por tipo de pagamento).
-
----
-
-## 🥊 Módulo 2: Comparação de Modelos (`compare_models.py`)
-
-Após entender os dados, este script realiza um "Torneio" entre algoritmos para decidir qual arquitetura tem melhor performance potencial.
-
-### 🧠 Metodologia de Avaliação
-
-Não basta medir Acurácia! Em fraude (1% dos dados), um modelo que diz "tudo é legítimo" tem 99% de acurácia, mas é inútil. Por isso, usamos uma estratégia avançada:
-
-1.  **Validação Cruzada Estratificada (Stratified K-Fold)**:
-    - Divide os dados em 5 partes, mantendo a proporção de fraude em cada parte. Garante que o teste não seja "sorte".
-2.  **Pipeline Anti-Leakage (Prevenção de Vazamento)**:
-    - O balanceamento de classes (SMOTE) é aplicado **dentro** de cada rodada de validação, apenas nos dados de treino. Isso simula o cenário real de produção e evita resultados artificialmente bons.
-
-### 🏆 Competidores (Algoritmos)
-
-- **Logistic Regression**: O baseline simples e explicável.
-- **Decision Tree**: Captura regras de decisão simples (If-Else).
-- **Random Forest**: Cria centenas de árvores para reduzir a variância e o risco de overfit.
-- **Gradient Boosting (Sklearn)**: Constrói árvores sequencialmente, corrigindo o erro da anterior.
-- **XGBoost / LightGBM**: O estado da arte em dados tabulares. Otimizados para velocidade e performance extrema.
-
-### 📂 Artefatos Gerados
-
-#### 1. Relatório de Ranking (`model_comparison_report.txt`)
-
-Um resumo executivo contendo:
-
-- Tabela com o desempenho médio de cada modelo.
-- Desvio padrão das métricas (indica se o modelo é estável ou instável).
-- **Vencedor Geral**: Recomendação automática baseada no ROC-AUC.
-
-#### 2. Tabela de Resultados (`models_comparison_results.csv`)
-
-Arquivo bruto com todas as métricas calculadas:
-
-- **ROC-AUC**: Capacidade de distinção entre classes. Melhor métrica geral.
-- **Recall (Sensibilidade)**: De 100 fraudes, quantas o modelo pegou? (Crítico para bancos: perder fraude = prejuízo).
-- **Precision**: Dos alertas gerados, quantos eram realmente fraude? (Crítico para operação: muito alerta falso = custo operacional).
-- **F1-Score**: Média harmônica entre Precision e Recall.
-
-#### 3. Gráfico Comparativo (`model_comparison_metrics.png`)
-
-Um gráfico de barras agrupadas que permite ver, lado a lado, como cada modelo se sai em todas as dimensões (não apenas uma métrica isolada).
+O sistema utiliza `logging.basicConfig` com saida para `stdout`. Cada modelo gera logs com formato padrao `%(asctime)s - %(levelname)s - %(message)s`. Alem disso, o `experiments_log.json` funciona como log persistido de todos os experimentos.
 
 ---
 
-## 🔧 Módulo 3: Feature Engineering (`build_features.py`)
+# 5. Banco de Dados
 
-Este módulo é o "cérebro matemático" do projeto. Ele converte os dados brutos em matrizes otimizadas para algoritmos de Machine Learning.
+O Fraud Sentinel **nao utiliza banco de dados relacional ou NoSQL**. A persistencia e inteiramente baseada em arquivos:
 
-### ⚙️ Funcionalidades Chave
+| Tipo              | Formato             | Localizacao                    | Finalidade                      |
+| ----------------- | ------------------- | ------------------------------ | ------------------------------- |
+| Dados brutos      | CSV                 | `data/raw/Base.csv`            | Dataset BAF Suite original      |
+| Dados processados | CSV                 | `data/processed/`              | Splits de treino/teste          |
+| Modelos           | PKL (Pickle/Joblib) | `models/`                      | Modelos serializados            |
+| Thresholds        | TXT                 | `models/`                      | Limiares de decisao otimizados  |
+| Parametros        | TXT                 | `models/`                      | Hiperparametros vencedores      |
+| Historico         | JSON                | `reports/experiments_log.json` | Log unificado de experimentos   |
+| Metricas EDA      | CSV                 | `reports/data/`                | Tabelas de analise exploratoria |
+| Visualizacoes     | PNG                 | `reports/figures/`             | Graficos de avaliacao           |
+| Dashboard         | HTML                | `reports/sweetviz_report.html` | EDA interativa                  |
 
-- **Detecção Automática de Tipos**: Separa variáveis Numéricas e Categóricas automaticamente.
-- **Padronização Robusta (`RobustScaler`)**:
-  - Diferente do `StandardScaler` (comum), o `RobustScaler` usa a mediana e o intervalo interquartil (IQR).
-  - _Por que?_ Em finanças, uma transação de R$ 1MM não deve "estragar" a escala das transações de R$ 50. Isso torna o modelo imune a valores extremos.
-- **Tratamento de Nulos**:
-  - Numéricos: Preenchidos com a Mediana.
-  - Categóricos: Preenchidos com a tag 'missing'.
-- **Pipeline de Inferência**: Salva apenas o transformador (sem dados) para garantir que novos dados de produção passem exatamente pelo mesmo tratamento do treino.
-
-### 📂 Artefatos Gerados
-
-- **`models/preprocessor.joblib`**: O objeto serializado contendo todas as regras de transformação (médias, escalas, dicionários one-hot). Essencial para o script de predição.
-
----
-
-## 🧠 Módulo 4: Treinamento & Otimização Multi-Modelo
-
-Nesta etapa, elevamos o nível do projeto. Ao invés de confiar em apenas um algoritmo, implementamos uma **estratégia de orquestração multi-modelo**. Treinamos e otimizamos rigorosamente quatro arquiteturas distintas, cada uma com seus pontos fortes, para garantir que a solução final seja a mais robusta possível.
-
-### 🚀 Estratégia de Treinamento
-
-1. **Pipeline Completo por Modelo**: Cada algoritmo possui seu próprio script dedicado (`src/models/*_model.py`), contendo um pipeline que encapsula pré-processamento, balanceamento (Class Weights/Cost-Sensitive Learning) e o modelo em si.
-2. **Prevenção de Data Leakage**: Garantimos que transformações sejam aplicadas dentro do K-Fold.
-3. **Otimização Bayesiana/Grid (GridSearchCV)**: Exploramos exaustivamente o espaço de hiperparâmetros para encontrar a configuração ideal.
-4. **Threshold Tuning (Ajuste Fino de Decisão)**: Após o treino, rodamos um algoritmo que encontra o limiar de probabilidade exato que maximiza o F1-Score, abandonando o padrão ingênuo de 0.5.
-
-### 🏆 Os 4 Pilares (Modelos Implementados)
-
-#### 1. Logistic Regression (`reg_log_model.py`)
-
-O baseline robusto e interpretável. Excelente para estabelecer um "piso" de performance.
-
-- **Por que usar?** Simplicidade, rapidez e coeficientes que explicam diretamente o impacto de cada feature.
-- **Hiperparâmetros Otimizados:**
-  - `C` (Regularização): Controla a penalidade para erros. Valores menores (`0.01`) evitam overfitting.
-  - `Penalty` (`l1` vs `l2`): `l1` (Lasso) pode zerar coeficientes irrelevantes (seleção de features automática), enquanto `l2` (Ridge) apenas reduz seus pesos.
-  - `Class Weight`: 'balanced' para penalizar erros na classe minoritária.
-
-#### 2. Decision Tree (`decision_tree_model.py`)
-
-Captura relações não-lineares simples e regras de negócio explícitas ("Se valor > X e Hora < Y, então Fraude").
-
-- **Por que usar?** Alta interpretabilidade visual e capacidade de capturar padrões que fogem da linearidade.
-- **Hiperparâmetros Otimizados:**
-  - `max_depth`: Limita a profundidade da árvore para evitar que ela "decore" o treino (overfitting).
-  - `min_samples_split`: O mínimo de exemplos necessários para criar uma nova regra (nó). Valores altos deixam o modelo mais conservador.
-  - `criterion`: (`gini` vs `entropy`) A métrica matemática usada para decidir a melhor "pergunta" a fazer em cada nó.
-
-#### 3. Random Forest (`random_forest_model.py`)
-
-O "clássico" de competições. Cria uma floresta de árvores decisionais aleatórias e vota na maioria.
-
-- **Por que usar?** Extremamente robusto a overfitting e ruído. Geralmente performa muito bem "out-of-the-box".
-- **Hiperparâmetros Otimizados:**
-  - `n_estimators`: Número de árvores na floresta (`100`, `200`). Mais árvores = mais estabilidade (mas mais lento).
-  - `max_depth`: Profundidade máxima de cada árvore individual (`20` foi o ideal).
-  - `class_weight`: Ajuste interno para penalizar mais o erro na classe minoritária (Fraude).
-
-#### 4. XGBoost (`xgboost_model.py`)
-
-O estado da arte (SOTA) em dados tabulares. Utiliza Gradient Boosting, onde cada nova árvore corrige os erros da anterior.
-
-- **Por que usar?** Velocidade e precisão cirúrgica. É o padrão de mercado para sistemas de fraude de alta performance.
-
-#### 5. MLP Classifier (`mlp_model.py`)
-
-Rede Neural "Feedforward" clássica.
-
-- **Por que usar?** Capacidade de modelar fronteiras de decisão extremamente complexas e não-lineares que árvores podem perder.
-- **Hiperparâmetros Otimizados:**
-  - `hidden_layer_sizes`: Quantidade de neurônios. Testamos arquiteturas rasas e profundas.
-  - `activation`: (`relu` vs `tanh`). A função que "ativa" o neurônio.
-  - `early_stopping`: **Crucial**. Faz o treino parar assim que a performance para de melhorar, economizando horas de processamento.
-
-#### 6. Isolation Forest (`isolation_forest_model.py`)
-
-Algoritmo de Detecção de Anomalias (Unsupervised).
-
-- **Por que usar?** Hipótese de que fraudes são tão raras e diferentes que podem ser detectadas sem precisar de labels ("eu sei o que é normal, o resto é suspeito").
-- **Resultado:** Neste dataset, a hipótese não se confirmou tão bem quanto os métodos supervisionados, provando que o padrão de fraude aqui é sutil e precisa de exemplos (labels) para ser aprendido.
-
-### 📂 Artefatos Gerados
-
-Cada modelo gera seus próprios artefatos para total rastreabilidade:
-
-- **`models/[MODELO]_best_model.pkl`**: O binário final pronto para produção.
-- **`models/[MODELO]_best_model_params.txt`**: Relatório de parâmetros vencedores.
-- **`models/[MODELO]_threshold.txt`**: O limiar de decisão otimizado.
-- **`reports/experiments_log.json`**: Um log unificado com o histórico de todos os experimentos, métricas e IDs de execução.
+A estrategia de "banco de dados" e baseada em **flat files**, onde cada execucao appenda ao `experiments_log.json` e versiona modelos com timestamps no nome (`model_xgb_20260218_105559.pkl`).
 
 ---
 
-## 📈 Módulo 5: Avaliação Final (`visualize.py`)
+# 6. Regras de Negocio
 
-A "prova real". Este script pega o modelo final e o submete a dados que ele **nunca viu na vida** (`X_test`).
+## 6.1 Regras de Classificacao
 
-### 📊 Gráficos de Validação
+- O target e binario: `fraud_bool` = 0 (legitima) ou 1 (fraude)
+- O threshold de decisao NAO e 0.5 fixo. E otimizado por modelo via maximizacao do F1-Score na curva Precision-Recall
+- A decisao final e trinivelada: BLOQUEIO automatico, REVISAO manual, ou APROVACAO
 
-#### 1. Matriz de Confusão (`confusion_matrix.png`)
+## 6.2 Regras de Balanceamento
 
-- O teste definitivo. Mostra:
-  - **Verdadeiros Positivos**: Fraudes que pegamos.
-  - **Falsos Negativos**: Fraudes que deixamos passar (Prejuízo).
-  - **Falsos Positivos**: Clientes honestos que bloqueamos (Atrito).
+- SMOTE foi testado nos experimentos 1 e 2, mas **removido** no experimento final por gerar "Dupla Penalizacao" (excesso de falsos positivos)
+- A estrategia vencedora usa **Cost-Sensitive Learning**: `class_weight='balanced'` (LogReg, RF, DT) ou `scale_pos_weight=90` (XGBoost)
 
-#### 2. Curva ROC (`roc_curve.png`)
+## 6.3 Regras de Validacao
 
-- Mede a qualidade do score de risco. Quanto mais a curva "abraça" o canto superior esquerdo, melhor o modelo sabe separar o trigo do joio.
+- Split estratificado obrigatorio (`stratify=y`) para manter proporcao de fraude
+- Preprocessamento ocorre **dentro** do pipeline para evitar Data Leakage
+- SMOTE (quando usado) e aplicado **dentro** de cada fold de validacao cruzada
+- GridSearch avalia por `roc_auc` (metrica independente de threshold)
 
-#### 3. Feature Importance (`feature_importance_coefficients.png`)
+## 6.4 Regras de Versionamento de Modelos
 
-- **Explicabilidade (XAI)**. Mostra quais variáveis mais pesaram na decisão.
-  - Ex: "O modelo aprendeu que transações internacionais aumentam o risco?"
+- Modelo "latest" em `{nome}_best_model.pkl` (sempre sobrescrito)
+- Modelo historico em `model_{nome}_{timestamp}.pkl` (nunca sobrescrito)
+- Pasta de modelos nao e limpa pelo reset para manter historico
 
----
+## 6.5 Regras de Motor de Decisao
 
-## 🔮 Módulo 6: Simulação de Produção (`predict_model.py`)
-
-Simula uma API Real-Time de antifraude.
-
-### ⚙️ Como funciona
-
-1.  Recebe uma "nova transação" (simulada).
-2.  Carrega o artefato `preprocessor.joblib` para limpar os dados.
-3.  Carrega o modelo `best_model.pkl`.
-4.  **Carrega o Threshold Otimizado (`threshold.txt`)**.
-5.  **Aplica Decisão Inteligente**:
-    - Score > Threshold ➔ 🔴 **BLOQUEIO AUTOMÁTICO**
-    - Score > (Threshold \* 0.8) ➔ ⚠️ **ANÁLISE MANUAL**
-    - Score < (Threshold \* 0.8) ➔ 🟢 **APROVADO**
+```
+Se score > threshold:             --> BLOQUEIO AUTOMATICO (Alto Risco)
+Se score > threshold * 0.8:       --> REVISAO MANUAL (Medio Risco)
+Se score <= threshold * 0.8:      --> APROVADO (Baixo Risco)
+```
 
 ---
 
-## 🎼 O Maestro: Pipeline Completo (`main.py`)
+# 7. Integracoes Externas
 
-Um orquestrador que roda todo o projeto na ordem correta, garantindo que nada seja esquecido.
+O projeto **nao possui integracoes com APIs externas** em tempo de execucao. Todas as dependencias sao bibliotecas Python instaladas localmente.
 
-### Funcionalidades
+## 7.1 Bibliotecas Criticas
 
-- **Limpeza Automática**: Remove arquivos antigos antes de rodar.
-- **Execução Sequencial**: Garante que o Modelo só treine depois que os Dados existam.
-- **Argumentos Flexíveis**: Você pode pular etapas lentas (como EDA ou Comparação).
+| Biblioteca           | Versao          | Finalidade                                  |
+| -------------------- | --------------- | ------------------------------------------- |
+| scikit-learn         | 1.8.0           | Pipelines, modelos, metricas, preprocessing |
+| xgboost              | 3.2.0           | Gradient Boosting otimizado                 |
+| imbalanced-learn     | 0.14.1          | SMOTE e ImbPipeline                         |
+| lightgbm             | 4.6.0           | Gradient Boosting (benchmark)               |
+| pandas               | 2.3.3           | Manipulacao de dados tabulares              |
+| numpy                | 2.3.5           | Operacoes numericas                         |
+| matplotlib / seaborn | 3.10.0 / 0.13.2 | Visualizacoes                               |
+| sweetviz             | 2.3.1           | Dashboard EDA interativo                    |
+| scipy                | 1.16.3          | Testes estatisticos (Mann-Whitney)          |
+| joblib               | 1.5.3           | Serializacao de modelos                     |
+| tqdm                 | 4.67.3          | Barras de progresso (opcional)              |
 
-### 🚀 Exemplos de Execução
+---
 
-**1. Rodar TUDO (Do zero à produção):**
+# 8. Logica e Algoritmos
+
+## 8.1 Otimizacao de Memoria (Downcasting)
+
+O algoritmo em `optimize_memory_usage()` itera por todas as colunas e verifica se o range de valores cabe em tipos menores (`int8`, `int16`, `float32`), reduzindo significativamente o footprint de memoria para datasets com milhoes de linhas.
+
+## 8.2 Threshold Tuning
+
+Todos os modelos executam apos o treinamento:
+
+1. Calculam `predict_proba` no conjunto de treino
+2. Geram a curva Precision-Recall com todos os thresholds possiveis
+3. Calculam F1 = 2*(P*R)/(P+R) para cada threshold
+4. Selecionam o threshold que maximiza F1
+
+Isso substitui o corte ingenuo de 0.5 por um ponto de operacao otimizado para o problema.
+
+## 8.3 IForestWrapper (Adapter Pattern)
+
+O Isolation Forest nao implementa `predict_proba` nativamente. O `IForestWrapper` aplica o padrao Adapter:
+
+1. `fit()`: Treina o IF e ajusta um `MinMaxScaler` nos scores de decisao invertidos
+2. `predict()`: Converte -1 (anomalia) para 1 (fraude) e 1 (normal) para 0
+3. `predict_proba()`: Normaliza scores para [0,1] e retorna formato `(n, 2)`
+
+## 8.4 Amostragem Estratificada para GridSearch
+
+LogReg e XGBoost usam amostra de 100k linhas para GridSearch (economia de horas de processamento), seguida de retreino no dataset completo com os parametros vencedores.
+
+## 8.5 Informacao Mutua (MI)
+
+A EDA calcula Mutual Information com `mutual_info_classif` para ranquear features por capacidade preditiva, capturando relacoes nao-lineares que correlacao de Pearson/Spearman ignora.
+
+---
+
+# 9. Configuracoes e Variaveis de Ambiente
+
+| Variavel       | Arquivo             | Finalidade                     | Valor        |
+| -------------- | ------------------- | ------------------------------ | ------------ |
+| `RANDOM_STATE` | `config.py`         | Semente para reprodutibilidade | 42           |
+| `TEST_SIZE`    | `config.py`         | Proporcao do split de teste    | 0.2          |
+| `TARGET_COL`   | `config.py`         | Coluna alvo                    | `fraud_bool` |
+| `SAMPLE_SIZE`  | Modelos individuais | Amostra para GridSearch        | 100000       |
+| `CV_FOLDS`     | Modelos individuais | Folds de validacao cruzada     | 3            |
+| `.env`         | Raiz                | Reservado (vazio)              | --           |
+
+---
+
+# 10. Como Executar o Projeto
+
+## 10.1 Requisitos
+
+- Python 3.12+
+- ~8GB RAM (recomendado para dataset BAF completo)
+- Windows 10/11 (testado)
+
+## 10.2 Instalacao
 
 ```bash
+git clone https://github.com/Marocosz/fraud-sentinel.git
+cd fraud-sentinel
+python -m venv venvmine
+venvmine\Scripts\activate    # Windows
+pip install -r requirements.txt
+```
+
+## 10.3 Preparacao dos Dados
+
+Baixe o dataset BAF Suite do Kaggle e coloque em `data/raw/Base.csv`:
+
+- URL: https://www.kaggle.com/datasets/sgpjesus/bank-account-fraud-dataset-neurips-2022
+
+## 10.4 Execucao
+
+```bash
+# Pipeline completo (primeira vez)
 python main.py
-```
 
-**2. Rodar rápido (Pular gráficos pesados e comparação de modelos):**
-
-```bash
+# Sem EDA (mais rapido)
 python main.py --skip-eda
-```
 
-**3. Apenas simular predição (com o modelo atual):**
+# Apenas modelos especificos
+python main.py --skip-eda --models xgb,rf
 
-```bash
-python main.py --no-reset --predict --skip-eda
+# Com benchmark de algoritmos (demorado)
+python main.py --compare-models
+
+# Com simulacao de producao
+python main.py --predict
+
+# Sem limpeza (reuso de dados processados)
+python main.py --no-reset --skip-eda --models xgb
+
+# Ajuste fino de Precision
+python src/models/force_precision.py 0.20
 ```
 
 ---
 
-**Autor:** [Marco Antonio] - Projeto de Portfólio em Data Science & Machine Learning.
+# 11. Estrategia de Logs e Monitoramento
+
+## 11.1 Logs em Console
+
+Todos os modulos utilizam `logging.basicConfig` com nivel `INFO` e saida para `stdout`. O formato padrao e `%(asctime)s - %(levelname)s - %(message)s`.
+
+## 11.2 Log Persistido (experiments_log.json)
+
+Cada treinamento appenda um registro contendo:
+
+- `run_id` (timestamp)
+- `model_type`, `smote_strategy`, `best_params`
+- `best_cv_score`, `best_threshold`
+- `model_path` (nome do arquivo versionado)
+- Metricas de avaliacao (AUC, classification_report, confusion_matrix) -- adicionadas pelo `visualize.py`
+
+## 11.3 Diagnostico de Problemas
+
+1. **Modelo nao encontrado**: Verificar se `main.py` foi executado antes de `predict_model.py`
+2. **Memoria insuficiente**: Reduzir `SAMPLE_SIZE` nos modelos ou usar `--models` para treinar menos modelos
+3. **Threshold nao encontrado**: O sistema faz fallback para 0.5 com warning
+
+---
+
+# 12. Pontos Criticos do Sistema
+
+## 12.1 Gargalos de Performance
+
+- **Random Forest GridSearch**: Com `n_estimators=200` e `max_depth=None`, pode gerar modelos de 300MB+ e demorar horas
+- **MLP GridSearch**: 36 combinacoes de hiperparametros com 3 folds = 108 treinamentos de rede neural
+- **EDA com Sweetviz**: O dashboard HTML pode demorar minutos para datasets grandes
+
+## 12.2 Riscos Arquiteturais
+
+- **Threshold calculado no conjunto de treino**: Idealmente deveria usar um validation set separado para evitar overfitting do threshold
+- **Pipeline refitado a cada chamada**: `get_preprocessor()` cria um novo ColumnTransformer a cada treinamento. Nao ha garantia de consistencia entre modelos se o schema mudar
+- **Sem pipeline de CI/CD**: Nao ha testes automatizados funcionais
+
+## 12.3 Partes Sensiveis
+
+- `experiments_log.json`: Append concorrente pode corromper JSON se dois treinamentos rodarem simultaneamente
+- `data/raw/Base.csv`: Sem validacao de schema (colunas podem mudar entre versoes do dataset)
+
+---
+
+# 13. Teoria Tecnica Envolvida
+
+## 13.1 Padroes de Projeto
+
+| Padrao              | Aplicacao                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------- |
+| **Pipeline**        | Encadeamento de transformacoes via `sklearn.pipeline.Pipeline`                                    |
+| **Strategy**        | Cada `*_model.py` implementa a mesma interface de treinamento com algoritmos diferentes           |
+| **Adapter**         | `IForestWrapper` adapta a interface do Isolation Forest para compatibilidade com `predict_proba`  |
+| **Template Method** | Todos os modelos seguem o mesmo esqueleto: carga -> pipeline -> grid -> threshold -> persistencia |
+| **Registry**        | `experiments_log.json` funciona como registro central de experimentos                             |
+
+## 13.2 Conceitos de ML Aplicados
+
+- **Stratified K-Fold**: Mantem proporcao de classes em cada fold, essencial para dados desbalanceados
+- **Cost-Sensitive Learning**: Penaliza erros na classe minoritaria sem gerar dados sinteticos
+- **Threshold Tuning**: Otimiza o ponto de operacao do modelo para o trade-off Precision/Recall desejado
+- **RobustScaler**: Normalizacao baseada em mediana e IQR, imune a outliers financeiros
+- **One-Hot Encoding com handle_unknown='ignore'**: Tolera categorias novas em producao sem quebrar
+
+## 13.3 Conceitos Estatisticos
+
+- **Mann-Whitney U Test**: Teste nao-parametrico para verificar se distribuicoes de fraude e legitimidade diferem significativamente
+- **Mutual Information**: Mede dependencia estatistica geral (linear e nao-linear) entre features e target
+- **IQR (Interquartile Range)**: Metodo robusto para deteccao de outliers
+- **Correlacao de Spearman**: Captura relacoes monotonicas sem assumir linearidade
+
+---
+
+# 14. Melhorias Futuras
+
+## 14.1 Sugestoes Estruturais
+
+1. **Criar classe base abstrata `BaseModelTrainer`** para eliminar duplicacao entre os 6 arquivos de modelo
+2. **Implementar testes unitarios** (arquivos em `tests/` estao vazios)
+3. **Separar validation set** do train set para threshold tuning mais robusto
+4. **Adicionar type hints** e docstrings padrao (Google style ou NumPy style)
+
+## 14.2 Melhorias de Performance
+
+1. **Substituir GridSearchCV por Optuna/BayesSearchCV** para busca mais eficiente de hiperparametros
+2. **Implementar cache de preprocessamento** para evitar recomputacao em cada modelo
+3. **Usar Parquet em vez de CSV** para leitura 5-10x mais rapida
+
+## 14.3 Refatoracoes Recomendadas
+
+1. **Extrair logica de persistencia de experimentos** para um modulo `experiment_tracker.py`
+2. **Centralizar configuracao de modelos** em um unico YAML/JSON em vez de dicionarios por arquivo
+3. **Implementar SHAP/LIME** para explicabilidade (placeholder existe em `predict_model.py`)
+
+---
+
+# 15. Analise Critica da Arquitetura
+
+## 15.1 Codigo Duplicado (Alto Impacto)
+
+Os 6 arquivos de modelo (`reg_log_model.py`, `random_forest_model.py`, `xgboost_model.py`, `decision_tree_model.py`, `mlp_model.py`, `isolation_forest_model.py`) compartilham **~80% do codigo identico**:
+
+- Carga de dados (identica em todos)
+- Chamada a `get_preprocessor()` (identica)
+- Montagem do pipeline (identica, exceto modelo)
+- Criacao do GridSearchCV (identica, exceto param_grid)
+- Persistencia de modelo (identica, exceto nome)
+- Threshold Tuning (identico)
+- Registro em `experiments_log.json` (identico)
+
+**Recomendacao**: Criar uma classe base `BaseTrainer` com metodo `train()` generico, onde subclasses definem apenas `MODEL_CONFIG`.
+
+## 15.2 Chave Duplicada no Dicionario
+
+Em `decision_tree_model.py`, linha 42-43, a chave `"model_class"` e definida duas vezes no `MODEL_CONFIG`:
+
+```python
+MODEL_CONFIG = {
+    "model_class": DecisionTreeClassifier,
+    "model_class": DecisionTreeClassifier,  # DUPLICADA
+    ...
+}
+```
+
+Nao causa erro funcional (Python usa a ultima), mas indica copy-paste descuidado.
+
+## 15.3 Variavel Nao Utilizada
+
+Em `decision_tree_model.py`, linha 106, a variavel `year_now` e atribuida mas nunca utilizada:
+
+```python
+year_now = datetime.datetime.now().year  # Nao usado em nenhum lugar
+```
+
+## 15.4 Import Duplicado
+
+Em `reg_log_model.py`, `precision_recall_curve` e importado duas vezes: no topo (linha 14) e dentro da funcao (linha 234).
+
+## 15.5 Testes Nao Implementados
+
+Os arquivos `tests/test_data.py` e `tests/test_features.py` contem apenas comentarios, sem nenhum teste real. Isso representa um risco significativo para manutencao.
+
+## 15.6 Inconsistencia na Estrategia de Amostragem para GridSearch
+
+- LogReg e XGBoost usam amostra de 100k linhas para GridSearch + retreino no completo
+- Random Forest, Decision Tree e MLP usam o dataset completo direto no GridSearch
+- Essa inconsistencia pode resultar em tempos de treinamento drasticamente diferentes
+
+## 15.7 Acoplamento com Sistema de Arquivos
+
+Todos os modulos dependem diretamente de caminhos de arquivo para comunicacao. Nao ha abstracoes de I/O, tornando dificil adaptar para outros meios de armazenamento (S3, banco de dados, etc.).
+
+---
+
+**Autor:** Marco Antonio -- Projeto de Portfolio em Data Science e Machine Learning
+
+**Dataset:** Bank Account Fraud (BAF) Suite -- NeurIPS 2022
+
+**Tecnologias:** Python 3.12, Scikit-Learn, XGBoost, LightGBM, Imbalanced-Learn, Pandas, Matplotlib, Seaborn, Sweetviz
