@@ -3,6 +3,304 @@
 > [!NOTE]
 > Link para download da base de dados usada: https://drive.google.com/file/d/1KWKHddAwpZ2HAwsWmL0HWlUXFw8HWf9N/view?usp=sharing
 
+---
+
+# Resultados da Analise Exploratoria (EDA)
+
+A partir do arquivo `generate_eda_report.py` criamos um relatorio textual (`reports/eda_summary.txt`) com o sumario completo da base de dados. A seguir estao todas as informacoes e descricoes geradas a partir da analise da base inicial.
+
+## Carga de Dados
+
+O dataset carregado possui **1.000.000 de linhas** e **32 colunas**. A coluna alvo (target) e `fraud_bool`, que indica se a abertura de conta e fraudulenta (1) ou legitima (0).
+
+## Estrutura e Qualidade dos Dados
+
+O dataset nao possui **nenhum valor nulo** e **nenhuma linha duplicada** (0.00%). Todos os 1.000.000 de registros sao completos e unicos.
+
+### Tipos de Dados e Cardinalidade
+
+| Coluna                             | Tipo    | Nulos | % Nulos | Cardinalidade |
+| ---------------------------------- | ------- | ----- | ------- | ------------- |
+| `fraud_bool`                       | int64   | 0     | 0.0%    | 2             |
+| `income`                           | float64 | 0     | 0.0%    | 9             |
+| `name_email_similarity`            | float64 | 0     | 0.0%    | 998.861       |
+| `prev_address_months_count`        | int64   | 0     | 0.0%    | 374           |
+| `current_address_months_count`     | int64   | 0     | 0.0%    | 423           |
+| `customer_age`                     | int64   | 0     | 0.0%    | 9             |
+| `days_since_request`               | float64 | 0     | 0.0%    | 989.330       |
+| `intended_balcon_amount`           | float64 | 0     | 0.0%    | 994.971       |
+| `payment_type`                     | object  | 0     | 0.0%    | 5             |
+| `zip_count_4w`                     | int64   | 0     | 0.0%    | 6.306         |
+| `velocity_6h`                      | float64 | 0     | 0.0%    | 998.687       |
+| `velocity_24h`                     | float64 | 0     | 0.0%    | 998.940       |
+| `velocity_4w`                      | float64 | 0     | 0.0%    | 998.318       |
+| `bank_branch_count_8w`             | int64   | 0     | 0.0%    | 2.326         |
+| `date_of_birth_distinct_emails_4w` | int64   | 0     | 0.0%    | 40            |
+| `employment_status`                | object  | 0     | 0.0%    | 7             |
+| `credit_risk_score`                | int64   | 0     | 0.0%    | 551           |
+| `email_is_free`                    | int64   | 0     | 0.0%    | 2             |
+| `housing_status`                   | object  | 0     | 0.0%    | 7             |
+| `phone_home_valid`                 | int64   | 0     | 0.0%    | 2             |
+| `phone_mobile_valid`               | int64   | 0     | 0.0%    | 2             |
+| `bank_months_count`                | int64   | 0     | 0.0%    | 33            |
+| `has_other_cards`                  | int64   | 0     | 0.0%    | 2             |
+| `proposed_credit_limit`            | float64 | 0     | 0.0%    | 12            |
+| `foreign_request`                  | int64   | 0     | 0.0%    | 2             |
+| `source`                           | object  | 0     | 0.0%    | 2             |
+| `session_length_in_minutes`        | float64 | 0     | 0.0%    | 994.887       |
+| `device_os`                        | object  | 0     | 0.0%    | 5             |
+| `keep_alive_session`               | int64   | 0     | 0.0%    | 2             |
+| `device_distinct_emails_8w`        | int64   | 0     | 0.0%    | 4             |
+| `device_fraud_count`               | int64   | 0     | 0.0%    | 1             |
+| `month`                            | int64   | 0     | 0.0%    | 8             |
+
+Resumo de tipos: 9 colunas float64, 18 colunas int64, 5 colunas object (categoricas). Uso de memoria: ~244 MB.
+
+## Dominio das Variaveis Categoricas
+
+| Variavel            | Categorias | Valores                               |
+| ------------------- | ---------- | ------------------------------------- |
+| `payment_type`      | 5          | AA, AB, AC, AD, AE                    |
+| `employment_status` | 7          | CA, CB, CC, CD, CE, CF, CG            |
+| `housing_status`    | 7          | BA, BB, BC, BD, BE, BF, BG            |
+| `source`            | 2          | INTERNET, TELEAPP                     |
+| `device_os`         | 5          | linux, macintosh, other, windows, x11 |
+
+## Estatisticas Descritivas (Variaveis Numericas)
+
+| Variavel                           | Media   | Desvio Padrao | Min     | Q1 (25%) | Mediana (50%) | Q3 (75%) | Max      |
+| ---------------------------------- | ------- | ------------- | ------- | -------- | ------------- | -------- | -------- |
+| `income`                           | 0.5627  | 0.2903        | 0.10    | 0.30     | 0.60          | 0.80     | 0.90     |
+| `name_email_similarity`            | 0.4937  | 0.2891        | ~0.00   | 0.2252   | 0.4922        | 0.7556   | ~1.00    |
+| `prev_address_months_count`        | 16.72   | 44.05         | -1      | -1       | -1            | 12       | 383      |
+| `current_address_months_count`     | 86.59   | 88.41         | -1      | 19       | 52            | 130      | 428      |
+| `customer_age`                     | 33.69   | 12.03         | 10      | 20       | 30            | 40       | 90       |
+| `days_since_request`               | 1.03    | 5.38          | ~0.00   | 0.007    | 0.015         | 0.026    | 78.46    |
+| `intended_balcon_amount`           | 8.66    | 20.24         | -15.53  | -1.18    | -0.83         | 4.98     | 112.96   |
+| `zip_count_4w`                     | 1572.69 | 1005.37       | 1       | 894      | 1263          | 1944     | 6700     |
+| `velocity_6h`                      | 5665.30 | 3009.38       | -170.60 | 3436.37  | 5319.77       | 7680.72  | 16715.57 |
+| `velocity_24h`                     | 4769.78 | 1479.21       | 1300.31 | 3593.18  | 4749.92       | 5752.57  | 9506.90  |
+| `velocity_4w`                      | 4856.32 | 919.84        | 2825.75 | 4268.37  | 4913.44       | 5488.08  | 6994.76  |
+| `bank_branch_count_8w`             | 184.36  | 459.63        | 0       | 1        | 9             | 25       | 2385     |
+| `date_of_birth_distinct_emails_4w` | 9.50    | 5.03          | 0       | 6        | 9             | 13       | 39       |
+| `credit_risk_score`                | 130.99  | 69.68         | -170    | 83       | 122           | 178      | 389      |
+| `email_is_free`                    | 0.5299  | 0.4991        | 0       | 0        | 1             | 1        | 1        |
+| `phone_home_valid`                 | 0.4171  | 0.4931        | 0       | 0        | 0             | 1        | 1        |
+| `phone_mobile_valid`               | 0.8897  | 0.3133        | 0       | 1        | 1             | 1        | 1        |
+| `bank_months_count`                | 10.84   | 12.12         | -1      | -1       | 5             | 25       | 32       |
+| `has_other_cards`                  | 0.2230  | 0.4163        | 0       | 0        | 0             | 0        | 1        |
+| `proposed_credit_limit`            | 515.85  | 487.56        | 190     | 200      | 200           | 500      | 2100     |
+| `foreign_request`                  | 0.0252  | 0.1569        | 0       | 0        | 0             | 0        | 1        |
+| `session_length_in_minutes`        | 7.54    | 8.03          | -1.00   | 3.10     | 5.11          | 8.87     | 85.90    |
+| `keep_alive_session`               | 0.5769  | 0.4940        | 0       | 0        | 1             | 1        | 1        |
+| `device_distinct_emails_8w`        | 1.02    | 0.18          | -1      | 1        | 1             | 1        | 2        |
+| `device_fraud_count`               | 0.00    | 0.00          | 0       | 0        | 0             | 0        | 0        |
+| `month`                            | 3.29    | 2.21          | 0       | 1        | 3             | 5        | 7        |
+
+## Quantificacao de Outliers (Metodo IQR)
+
+| Variavel                           | Outliers | % Outliers | Limite Inferior | Limite Superior |
+| ---------------------------------- | -------- | ---------- | --------------- | --------------- |
+| `proposed_credit_limit`            | 241.742  | 24.17%     | -250.00         | 950.00          |
+| `has_other_cards`                  | 222.988  | 22.30%     | 0.00            | 0.00            |
+| `intended_balcon_amount`           | 222.702  | 22.27%     | -10.43          | 14.23           |
+| `bank_branch_count_8w`             | 175.243  | 17.52%     | -35.00          | 61.00           |
+| `prev_address_months_count`        | 157.320  | 15.73%     | -20.50          | 31.50           |
+| `phone_mobile_valid`               | 110.324  | 11.03%     | 1.00            | 1.00            |
+| `days_since_request`               | 94.834   | 9.48%      | -0.02           | 0.06            |
+| `session_length_in_minutes`        | 78.789   | 7.88%      | -5.54           | 17.51           |
+| `zip_count_4w`                     | 59.871   | 5.99%      | -681.00         | 3519.00         |
+| `current_address_months_count`     | 41.001   | 4.10%      | -147.50         | 296.50          |
+| `device_distinct_emails_8w`        | 31.933   | 3.19%      | 1.00            | 1.00            |
+| `foreign_request`                  | 25.242   | 2.52%      | 0.00            | 0.00            |
+| `date_of_birth_distinct_emails_4w` | 9.734    | 0.97%      | -4.50           | 23.50           |
+| `velocity_6h`                      | 9.005    | 0.90%      | -2930.16        | 14047.25        |
+| `credit_risk_score`                | 8.729    | 0.87%      | -59.50          | 320.50          |
+| `velocity_24h`                     | 2.917    | 0.29%      | 354.09          | 8991.67         |
+| `customer_age`                     | 1.373    | 0.14%      | -10.00          | 70.00           |
+| `name_email_similarity`            | 0        | 0.00%      | -0.57           | 1.55            |
+| `income`                           | 0        | 0.00%      | -0.45           | 1.55            |
+| `velocity_4w`                      | 0        | 0.00%      | 2438.80         | 7317.66         |
+
+## Distribuicao do Target
+
+| Classe       | Total   | Percentual |
+| ------------ | ------- | ---------- |
+| 0 (Legitima) | 988.971 | 98.90%     |
+| 1 (Fraude)   | 11.029  | 1.10%      |
+
+O dataset e **extremamente desbalanceado**: apenas 1.10% das aberturas de conta sao fraudulentas. Isso justifica o uso de tecnicas como Cost-Sensitive Learning (`class_weight='balanced'`, `scale_pos_weight=90`) e metricas como ROC-AUC e Recall em vez de Acuracia.
+
+## Testes Estatisticos (Mann-Whitney U -- Fraude vs Legitima)
+
+O teste Mann-Whitney U e um teste nao-parametrico que verifica se a distribuicao de uma variavel e estatisticamente diferente entre os dois grupos (Fraude e Legitima). Se p-value < 0.05, a diferenca e significativa.
+
+| Variavel                           | Mann-Whitney Stat | P-Value   | Conclusao              |
+| ---------------------------------- | ----------------- | --------- | ---------------------- |
+| `customer_age`                     | 65.564.824,5      | ~0.00     | Significativo (p<0.05) |
+| `credit_risk_score`                | 66.698.262,5      | ~0.00     | Significativo (p<0.05) |
+| `prev_address_months_count`        | 39.783.177,5      | 6.23e-300 | Significativo (p<0.05) |
+| `proposed_credit_limit`            | 63.877.277,0      | 8.18e-296 | Significativo (p<0.05) |
+| `income`                           | 64.323.855,0      | 4.86e-281 | Significativo (p<0.05) |
+| `current_address_months_count`     | 63.932.505,5      | 2.91e-255 | Significativo (p<0.05) |
+| `keep_alive_session`               | 38.390.000,0      | 3.35e-238 | Significativo (p<0.05) |
+| `date_of_birth_distinct_emails_4w` | 37.493.070,0      | 5.98e-207 | Significativo (p<0.05) |
+| `has_other_cards`                  | 42.870.000,0      | 1.46e-170 | Significativo (p<0.05) |
+| `name_email_similarity`            | 39.904.832,0      | 5.43e-135 | Significativo (p<0.05) |
+| `phone_home_valid`                 | 41.975.000,0      | 6.33e-128 | Significativo (p<0.05) |
+| `bank_branch_count_8w`             | 41.159.136,0      | 2.41e-105 | Significativo (p<0.05) |
+| `email_is_free`                    | 56.960.000,0      | 3.28e-89  | Significativo (p<0.05) |
+| `device_distinct_emails_8w`        | 53.088.699,0      | 4.00e-66  | Significativo (p<0.05) |
+| `intended_balcon_amount`           | 45.446.320,0      | 6.85e-29  | Significativo (p<0.05) |
+| `velocity_6h`                      | 45.459.988,5      | 9.98e-29  | Significativo (p<0.05) |
+| `foreign_request`                  | 51.275.000,0      | 1.52e-21  | Significativo (p<0.05) |
+| `days_since_request`               | 46.319.316,5      | 1.96e-19  | Significativo (p<0.05) |
+| `month`                            | 53.497.183,5      | 5.90e-18  | Significativo (p<0.05) |
+| `phone_mobile_valid`               | 47.975.000,0      | 1.85e-17  | Significativo (p<0.05) |
+| `velocity_4w`                      | 46.741.244,0      | 1.44e-15  | Significativo (p<0.05) |
+| `bank_months_count`                | 46.855.019,5      | 4.28e-15  | Significativo (p<0.05) |
+| `velocity_24h`                     | 47.016.792,0      | 2.73e-13  | Significativo (p<0.05) |
+| `zip_count_4w`                     | 51.794.874,5      | 1.10e-05  | Significativo (p<0.05) |
+| `session_length_in_minutes`        | 50.570.011,0      | 1.63e-01  | Nao Significativo      |
+| `device_fraud_count`               | 50.000.000,0      | 1.00      | Nao Significativo      |
+
+**Conclusao**: 24 de 26 variaveis numericas apresentam diferenca estatisticamente significativa entre fraudes e contas legitimas. Apenas `session_length_in_minutes` e `device_fraud_count` nao apresentaram significancia (p >= 0.05).
+
+## Mutual Information (Importancia de Features)
+
+O score de Mutual Information mede a dependencia estatistica entre cada feature e o target, capturando relacoes nao-lineares que a correlacao tradicional ignora. Quanto maior o score, maior o poder preditivo da variavel.
+
+| Posicao | Variavel                           | MI Score |
+| ------- | ---------------------------------- | -------- |
+| 1       | `device_distinct_emails_8w`        | 0.010217 |
+| 2       | `email_is_free`                    | 0.010028 |
+| 3       | `keep_alive_session`               | 0.009970 |
+| 4       | `phone_mobile_valid`               | 0.007698 |
+| 5       | `phone_home_valid`                 | 0.006016 |
+| 6       | `proposed_credit_limit`            | 0.004636 |
+| 7       | `customer_age`                     | 0.004512 |
+| 8       | `income`                           | 0.003630 |
+| 9       | `has_other_cards`                  | 0.001935 |
+| 10      | `credit_risk_score`                | 0.001892 |
+| 11      | `bank_months_count`                | 0.001779 |
+| 12      | `date_of_birth_distinct_emails_4w` | 0.001648 |
+| 13      | `name_email_similarity`            | 0.001588 |
+| 14      | `prev_address_months_count`        | 0.001465 |
+| 15      | `month`                            | 0.001373 |
+| 16      | `intended_balcon_amount`           | 0.001333 |
+| 17      | `current_address_months_count`     | 0.001302 |
+| 18      | `velocity_4w`                      | 0.001273 |
+| 19      | `velocity_6h`                      | 0.001098 |
+| 20      | `bank_branch_count_8w`             | 0.000955 |
+| 21      | `days_since_request`               | 0.000603 |
+| 22      | `velocity_24h`                     | 0.000184 |
+| 23      | `device_fraud_count`               | 0.000100 |
+| 24      | `zip_count_4w`                     | 0.000000 |
+| 25      | `session_length_in_minutes`        | 0.000000 |
+| 26      | `foreign_request`                  | 0.000000 |
+
+As features com maior poder preditivo sao relacionadas ao comportamento digital (`device_distinct_emails_8w`, `email_is_free`, `keep_alive_session`) e dados de contato (`phone_mobile_valid`, `phone_home_valid`), indicando que o perfil digital do solicitante e um forte indicador de fraude.
+
+## Analise Temporal (Taxa de Fraude por Mes)
+
+| Mes | Taxa de Fraude |
+| --- | -------------- |
+| 0   | 1.13%          |
+| 1   | 0.94%          |
+| 2   | 0.87%          |
+| 3   | 0.92%          |
+| 4   | 1.14%          |
+| 5   | 1.18%          |
+| 6   | 1.34%          |
+| 7   | 1.47%          |
+
+A taxa de fraude apresenta uma **tendencia crescente ao longo dos meses** (de 0.87% no mes 2 para 1.47% no mes 7), sugerindo um possivel aumento na atividade fraudulenta ao longo do periodo de coleta ou sazonalidade.
+
+## Correlacoes com o Target (Spearman)
+
+| Variavel                           | Correlacao com `fraud_bool` | Direcao                                         |
+| ---------------------------------- | --------------------------- | ----------------------------------------------- |
+| `credit_risk_score`                | +0.0602                     | Positiva (maior score = mais fraude)            |
+| `customer_age`                     | +0.0581                     | Positiva (mais velho = mais fraude)             |
+| `proposed_credit_limit`            | +0.0574                     | Positiva (limite maior = mais fraude)           |
+| `income`                           | +0.0496                     | Positiva (renda maior = mais fraude)            |
+| `current_address_months_count`     | +0.0485                     | Positiva (mais tempo no endereco = mais fraude) |
+| `device_distinct_emails_8w`        | +0.0365                     | Positiva                                        |
+| `email_is_free`                    | +0.0278                     | Positiva                                        |
+| `foreign_request`                  | +0.0169                     | Positiva                                        |
+| `month`                            | +0.0129                     | Positiva                                        |
+| `keep_alive_session`               | -0.0503                     | Negativa (sessao ativa = menos fraude)          |
+| `prev_address_months_count`        | -0.0463                     | Negativa                                        |
+| `date_of_birth_distinct_emails_4w` | -0.0456                     | Negativa                                        |
+| `name_email_similarity`            | -0.0373                     | Negativa (menor similaridade = mais fraude)     |
+| `has_other_cards`                  | -0.0352                     | Negativa                                        |
+| `phone_home_valid`                 | -0.0351                     | Negativa                                        |
+| `bank_branch_count_8w`             | -0.0322                     | Negativa                                        |
+| `device_fraud_count`               | NaN                         | Variancia zero (constante)                      |
+
+As correlacoes sao baixas em valor absoluto (max ~0.06), o que e esperado em problemas de fraude. Isso indica que nenhuma variavel isolada e suficiente para prever fraude, sendo necessario o uso de modelos multivariados.
+
+## Analise de Risco Categorico (Taxa de Fraude por Categoria)
+
+### Risco por Tipo de Pagamento (`payment_type`)
+
+| Categoria | Taxa de Fraude |
+| --------- | -------------- |
+| AC        | 1.67%          |
+| AB        | 1.13%          |
+| AD        | 1.08%          |
+| AA        | 0.53%          |
+| AE        | 0.35%          |
+
+### Risco por Status de Emprego (`employment_status`)
+
+| Categoria | Taxa de Fraude |
+| --------- | -------------- |
+| CC        | 2.47%          |
+| CG        | 1.55%          |
+| CA        | 1.22%          |
+| CB        | 0.69%          |
+| CD        | 0.38%          |
+| CE        | 0.23%          |
+| CF        | 0.19%          |
+
+### Risco por Status de Moradia (`housing_status`)
+
+| Categoria | Taxa de Fraude |
+| --------- | -------------- |
+| BA        | 3.75%          |
+| BD        | 0.86%          |
+| BC        | 0.61%          |
+| BB        | 0.60%          |
+| BF        | 0.42%          |
+| BG        | 0.40%          |
+| BE        | 0.34%          |
+
+A categoria BA de `housing_status` apresenta taxa de fraude **3.4x maior** que a media geral (3.75% vs 1.10%), sendo o segmento de maior risco em todo o dataset.
+
+### Risco por Origem da Solicitacao (`source`)
+
+| Categoria | Taxa de Fraude |
+| --------- | -------------- |
+| TELEAPP   | 1.59%          |
+| INTERNET  | 1.10%          |
+
+Solicitacoes via TELEAPP apresentam taxa de fraude 44% maior que via INTERNET.
+
+### Risco por Sistema Operacional (`device_os`)
+
+| Categoria | Taxa de Fraude |
+| --------- | -------------- |
+| windows   | 2.47%          |
+| macintosh | 1.40%          |
+| x11       | 1.12%          |
+| other     | 0.58%          |
+| linux     | 0.52%          |
+
+Dispositivos com sistema operacional Windows apresentam a maior taxa de fraude (2.47%), mais que o dobro da media geral.
+
+---
+
 # 1. Visao Geral do Projeto
 
 | Item                     | Descricao                                                                                                                                                                                                                                                                                             |
