@@ -1,4 +1,24 @@
-﻿# Configurações globais (caminhos, sementes aleatórias, hiperparâmetros)
+﻿# ==============================================================================
+# ARQUIVO: config.py
+#
+# OBJETIVO:
+#   Centralizar todas as configurações globais do projeto em um único local.
+#   Define os caminhos absolutos para persistência de arquivos, configurações 
+#   base para hiperparâmetros (seed, splits) e demais constantes estáticas.
+#
+# PARTE DO SISTEMA:
+#   Configuração Global / Setup de Infraestrutura.
+#
+# RESPONSABILIDADES:
+#   - Declarar dinamicamente as raízes estruturais através da classe Path.
+#   - Expor nomes estáticos essenciais (TARGET_COL, RANDOM_STATE, TEST_SIZE).
+#   - Automatizar a criação dos diretórios alvo caso não existam (raw, processed, reports).
+#
+# COMUNICAÇÃO:
+#   - É lido por diversos módulos: orquestração (main), `build_features`, testes e modelos.
+# ==============================================================================
+
+# Configurações globais (caminhos, sementes aleatórias, hiperparâmetros)
 from pathlib import Path
 
 # Caminhos Base

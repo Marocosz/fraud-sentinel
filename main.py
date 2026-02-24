@@ -1,4 +1,26 @@
-﻿import argparse
+﻿# ==============================================================================
+# ARQUIVO: main.py
+#
+# OBJETIVO:
+#   Atuar como o orquestrador principal (Maestro) do Pipeline de Machine Learning.
+#   Controla a execução sequencial das etapas: limpeza, engenharia de dados, 
+#   análise exploratória, treinamento de modelos e inferência.
+#
+# PARTE DO SISTEMA:
+#   Orquestrador Central / Entrypoint.
+#
+# RESPONSABILIDADES:
+#   - Limpar artefatos antigos para reprodutibilidade.
+#   - Chamar os módulos em ordem lógica (Data -> EDA -> Models -> Predictions).
+#   - Receber e decodificar argumentos de linha de comando (CLI).
+#   - Treinar os modelos na seleção do usuário.
+#
+# COMUNICAÇÃO:
+#   - Importa constantes e utilitários globais de `src/config.py`.
+#   - Centraliza e excuta chamadas das sub-pastas `src/data`, `src/models` e `src/visualization`.
+# ==============================================================================
+
+import argparse
 import sys
 import shutil
 from pathlib import Path
