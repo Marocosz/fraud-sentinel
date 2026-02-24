@@ -8,14 +8,14 @@
 | **Objetivo Principal**   | Desenvolver um pipeline completo de Machine Learning para detectar fraudes em aberturas de contas bancarias, priorizando a maximizacao do Recall (capturar o maximo de fraudes) com controle de Precision (minimizar falsos alarmes).                                                                 |
 | **Problema que Resolve** | Fraudes bancarias na abertura de contas causam prejuizos financeiros massivos. O sistema automatiza a triagem de solicitacoes, classificando-as como legitimas ou fraudulentas com base em padroes historicos de comportamento e atributos sociodemograficos.                                         |
 | **Contexto de Uso**      | O sistema opera sobre o dataset Bank Account Fraud (BAF) Suite, publicado no NeurIPS 2022, que simula dados reais de aberturas de conta com rotulagem binaria (0 = legitima, 1 = fraude). A taxa de fraude e extremamente baixa (~1%), exigindo tecnicas especializadas de balanceamento e avaliacao. |
-| **Tarefa de Mineracao**  | Classificacao Binaria Supervisionada (O problema e resolvido testando multiplos algoritmos e os unindo em um comite de Ensemble, mas a *"natureza"* do problema matematico ainda e de Classificacao Binaria).                                                                                         |
+| **Tarefa de Mineracao**  | Classificacao Binaria Supervisionada (O problema e resolvido testando multiplos algoritmos e os unindo em um comite de Ensemble, mas a _"natureza"_ do problema matematico ainda e de Classificacao Binaria).                                                                                         |
 | **Metodologia**          | CRISP-DM (Cross-Industry Standard Process for Data Mining)                                                                                                                                                                                                                                            |
 
 ---
 
 # Como Executar o Projeto
 
-CRIAR DOCKER 
+CRIAR DOCKER
 
 ## Preparacao dos Dados
 
@@ -23,8 +23,8 @@ Baixe o dataset BAF Suite do Kaggle e coloque em `data/raw/Base.csv`:
 
 > [!NOTE]
 > Link para download da base de dados usada (drive): https://drive.google.com/file/d/1KWKHddAwpZ2HAwsWmL0HWlUXFw8HWf9N/view?usp=sharing
+>
 > Link para download da base de dados usada (kaggle): https://www.kaggle.com/datasets/sgpjesus/bank-account-fraud-dataset-neurips-2022
-
 
 ## Execucao
 
@@ -51,33 +51,22 @@ python main.py --no-reset --skip-eda --models xgb
 python src/models/force_precision.py 0.20
 ```
 
----
+# Sumário
 
 - [Fraud Sentinel - Sistema Avancado de Deteccao de Fraudes Bancarias](#fraud-sentinel---sistema-avancado-de-deteccao-de-fraudes-bancarias)
 - [Visao Geral do Projeto](#visao-geral-do-projeto)
 - [Como Executar o Projeto](#como-executar-o-projeto)
-  - [Requisitos](#requisitos)
-  - [Instalacao](#instalacao)
   - [Preparacao dos Dados](#preparacao-dos-dados)
   - [Execucao](#execucao)
+- [Sumário](#sumário)
 - [1 Resultados da Analise Exploratoria (EDA)](#1-resultados-da-analise-exploratoria-eda)
-  - [1.1 Carga de Dados](#11-carga-de-dados)
-  - [1.2 Estrutura e Qualidade dos Dados](#12-estrutura-e-qualidade-dos-dados)
-    - [1.2.1 Tipos de Dados e Cardinalidade](#121-tipos-de-dados-e-cardinalidade)
-  - [1.3 Dominio das Variaveis Categoricas](#13-dominio-das-variaveis-categoricas)
-  - [1.4 Estatisticas Descritivas (Variaveis Numericas)](#14-estatisticas-descritivas-variaveis-numericas)
-  - [1.5 Quantificacao de Outliers (Metodo IQR)](#15-quantificacao-de-outliers-metodo-iqr)
-  - [1.6 Distribuicao do Target](#16-distribuicao-do-target)
-  - [1.7 Testes Estatisticos (Mann-Whitney U -- Fraude vs Legitima)](#17-testes-estatisticos-mann-whitney-u----fraude-vs-legitima)
-  - [1.8 Mutual Information (Importancia de Features)](#18-mutual-information-importancia-de-features)
-  - [1.9 Analise Temporal (Taxa de Fraude por Mes)](#19-analise-temporal-taxa-de-fraude-por-mes)
-  - [1.10 Correlacoes com o Target (Spearman)](#110-correlacoes-com-o-target-spearman)
-  - [1.11 Analise de Risco Categorico (Taxa de Fraude por Categoria)](#111-analise-de-risco-categorico-taxa-de-fraude-por-categoria)
-    - [1.11.1 Risco por Tipo de Pagamento (`payment_type`)](#1111-risco-por-tipo-de-pagamento-payment_type)
-    - [1.11.2 Risco por Status de Emprego (`employment_status`)](#1112-risco-por-status-de-emprego-employment_status)
-    - [1.11.3 Risco por Status de Moradia (`housing_status`)](#1113-risco-por-status-de-moradia-housing_status)
-    - [1.11.4 Risco por Origem da Solicitacao (`source`)](#1114-risco-por-origem-da-solicitacao-source)
-    - [1.11.5 Risco por Sistema Operacional (`device_os`)](#1115-risco-por-sistema-operacional-device_os)
+  - [1.1 Carga e Qualidade Visão Geral](#11-carga-e-qualidade-visão-geral)
+  - [1.2 O Problema do Desbalanceamento](#12-o-problema-do-desbalanceamento)
+  - [1.3 Significância Estatística das Variáveis](#13-significância-estatística-das-variáveis)
+  - [1.4 Importância de Features via Mutual Information (MI)](#14-importância-de-features-via-mutual-information-mi)
+  - [1.5 Análise de Risco Categórico: Onde mora a Fraude?](#15-análise-de-risco-categórico-onde-mora-a-fraude)
+  - [1.6 O Problema de Outliers: Escala é Essencial](#16-o-problema-de-outliers-escala-é-essencial)
+  - [1.7 Downcasting de Memória Otimizada](#17-downcasting-de-memória-otimizada)
 - [2. Arquitetura Geral](#2-arquitetura-geral)
   - [2.1 Tipo de Arquitetura](#21-tipo-de-arquitetura)
   - [2.2 Diagrama da Arquitetura](#22-diagrama-da-arquitetura)
@@ -88,22 +77,22 @@ python src/models/force_precision.py 0.20
     - [main.py -- Orquestrador Principal](#mainpy----orquestrador-principal)
     - [src/config.py -- Configuracoes Globais](#srcconfigpy----configuracoes-globais)
     - [src/data/make_dataset.py -- Engenharia de Dados](#srcdatamake_datasetpy----engenharia-de-dados)
-    - [src/features/build_features.py -- Pipeline de Features](#srcfeaturesbuild_featurespy----pipeline-de-features)
-    - [src/models/trainers/reg_log_model.py -- Logistic Regression](#srcmodelsreg_log_modelpy----logistic-regression)
-    - [src/models/trainers/decision_tree_model.py -- Decision Tree](#srcmodelsdecision_tree_modelpy----decision-tree)
-    - [src/models/trainers/random_forest_model.py -- Random Forest](#srcmodelsrandom_forest_modelpy----random-forest)
-    - [src/models/trainers/xgboost_model.py -- XGBoost](#srcmodelsxgboost_modelpy----xgboost)
-    - [src/models/trainers/mlp_model.py -- MLP Neural Network](#srcmodelsmlp_modelpy----mlp-neural-network)
-    - [src/models/trainers/isolation_forest_model.py -- Isolation Forest](#srcmodelsisolation_forest_modelpy----isolation-forest)
+    - [src/features/build_features.py -- Pipeline de Features (EDA-Driven)](#srcfeaturesbuild_featurespy----pipeline-de-features-eda-driven)
+    - [src/models/trainers/reg_log_model.py -- Logistic Regression](#srcmodelstrainersreg_log_modelpy----logistic-regression)
+    - [src/models/trainers/decision_tree_model.py -- Decision Tree](#srcmodelstrainersdecision_tree_modelpy----decision-tree)
+    - [src/models/trainers/random_forest_model.py -- Random Forest](#srcmodelstrainersrandom_forest_modelpy----random-forest)
+    - [src/models/trainers/xgboost_model.py -- XGBoost](#srcmodelstrainersxgboost_modelpy----xgboost)
+    - [src/models/trainers/mlp_model.py -- MLP Neural Network](#srcmodelstrainersmlp_modelpy----mlp-neural-network)
+    - [src/models/trainers/isolation_forest_model.py -- Isolation Forest](#srcmodelstrainersisolation_forest_modelpy----isolation-forest)
     - [src/models/compare_models.py -- Benchmark de Algoritmos](#srcmodelscompare_modelspy----benchmark-de-algoritmos)
-    - [src/serving/simulate_production.py -- Simulacao de Producao](#srcmodelspredict_modelpy----simulacao-de-producao)
+    - [src/serving/simulate_production.py -- Simulacao de Producao](#srcservingsimulate_productionpy----simulacao-de-producao)
     - [src/models/force_precision.py -- Ajuste de Precision-Alvo](#srcmodelsforce_precisionpy----ajuste-de-precision-alvo)
     - [src/visualization/generate_eda_report.py -- EDA Automatizada](#srcvisualizationgenerate_eda_reportpy----eda-automatizada)
     - [src/visualization/visualize.py -- Avaliacao Final](#srcvisualizationvisualizepy----avaliacao-final)
 - [4. Fluxos Detalhados](#4-fluxos-detalhados)
   - [4.1 Fluxo Principal do Sistema](#41-fluxo-principal-do-sistema)
   - [4.2 Fluxo de Treinamento de Modelo (Generico)](#42-fluxo-de-treinamento-de-modelo-generico)
-  - [4.3 Fluxo de Inferencia (Predicao)](#43-fluxo-de-inferencia-predicao)
+  - [4.3 Fluxo de Inferencia (Predicao com Ensemble)](#43-fluxo-de-inferencia-predicao-com-ensemble)
   - [4.4 Fluxo de Tratamento de Erros](#44-fluxo-de-tratamento-de-erros)
   - [4.5 Fluxo de Logs](#45-fluxo-de-logs)
 - [5. Banco de Dados](#5-banco-de-dados)
@@ -121,6 +110,9 @@ python src/models/force_precision.py 0.20
   - [8.3 IForestWrapper (Adapter Pattern)](#83-iforestwrapper-adapter-pattern)
   - [8.4 Amostragem Estratificada para GridSearch](#84-amostragem-estratificada-para-gridsearch)
   - [8.5 Informacao Mutua (MI)](#85-informacao-mutua-mi)
+  - [8.6 EDAFeatureEngineer (Feature Engineering Orientado por Dados)](#86-edafeatureengineer-feature-engineering-orientado-por-dados)
+  - [8.7 Abstração de Treinamento (`BaseTrainer`)](#87-abstração-de-treinamento-basetrainer)
+  - [8.8 Motor de Simulação (Ensemble PoV \& ROI)](#88-motor-de-simulação-ensemble-pov--roi)
 - [9. Configuracoes e Variaveis de Ambiente](#9-configuracoes-e-variaveis-de-ambiente)
 - [11. Estrategia de Logs e Monitoramento](#11-estrategia-de-logs-e-monitoramento)
   - [11.1 Logs em Console](#111-logs-em-console)
@@ -135,23 +127,14 @@ python src/models/force_precision.py 0.20
   - [13.2 Conceitos de ML Aplicados](#132-conceitos-de-ml-aplicados)
   - [13.3 Conceitos Estatisticos](#133-conceitos-estatisticos)
 - [14. Melhorias Futuras](#14-melhorias-futuras)
-  - [14.1 Sugestoes Estruturais](#141-sugestoes-estruturais)
-  - [14.2 Melhorias de Performance](#142-melhorias-de-performance)
-  - [14.3 Refatoracoes Recomendadas](#143-refatoracoes-recomendadas)
-- [15. Limitações Conhecidas e Trabalhos Futuros](#15-limitações-conhecidas-e-trabalhos-futuros)
-  - [15.1 Codigo Duplicado (Alto Impacto)](#151-codigo-duplicado-alto-impacto)
-  - [15.2 Chave Duplicada no Dicionario](#152-chave-duplicada-no-dicionario)
-  - [15.3 Variavel Nao Utilizada](#153-variavel-nao-utilizada)
-  - [15.4 Import Duplicado](#154-import-duplicado)
-  - [15.5 Testes Nao Implementados](#155-testes-nao-implementados)
-  - [15.6 Inconsistencia na Estrategia de Amostragem para GridSearch](#156-inconsistencia-na-estrategia-de-amostragem-para-gridsearch)
-  - [15.7 Acoplamento com Sistema de Arquivos](#157-acoplamento-com-sistema-de-arquivos)
+  - [14.1 Melhorias de Performance](#141-melhorias-de-performance)
+  - [14.2 Refatoracoes Recomendadas](#142-refatoracoes-recomendadas)
+- [15. Trabalhos Recentes Refatorados (Changelog Histórico)](#15-trabalhos-recentes-refatorados-changelog-histórico)
 
 # 1 Resultados da Analise Exploratoria (EDA)
 
 <details>
 <summary>Clique para expandir a Análise Exploratória de Dados (EDA)</summary>
-
 
 A partir do arquivo `generate_eda_report.py` criamos um relatorio textual (`reports/eda_summary.txt`) com o sumario completo da base de dados. A seguir estao todas as informacoes e descricoes geradas a partir da analise da base inicial.
 
@@ -161,34 +144,33 @@ O dataset analisado simula aberturas de contas bancárias com uma variável alvo
 
 - **Volume de Dados:** 1.000.000 de registros únicos.
 - **Dimensionalidade:** 32 features (9 Numéricas Contínuas, 18 Numéricas Discretas, 5 Categóricas).
-- **Qualidade Básica:** 0 nulos e 0 duplicados confirmados. A integridade estrutural da base economiza etapas de *imputation* massivas.
+- **Qualidade Básica:** 0 nulos e 0 duplicados confirmados. A integridade estrutural da base economiza etapas de _imputation_ massivas.
 
 <br>
 
 <details>
 <summary><b> Ver Tabela Completa de Cardinalidade e Tipagem</b></summary>
 
-| Coluna | Tipo | Cardinalidade | | Coluna | Tipo | Cardinalidade |
-|---|---|---|---|---|---|---|
-| `fraud_bool` | int64 | 2 | | `credit_risk_score` | int64 | 551 |
-| `income` | float64 | 9 | | `email_is_free` | int64 | 2 |
-| `name_email_similarity` | float64 | 998.861 | | `housing_status` | object | 7 |
-| `prev_address_months_count`| int64 | 374 | | `phone_home_valid` | int64 | 2 |
-| `current_address_months_count`| int64| 423 | | `phone_mobile_valid` | int64 | 2 |
-| `customer_age` | int64 | 9 | | `bank_months_count` | int64 | 33 |
-| `days_since_request` | float64 | 989.330 | | `has_other_cards` | int64 | 2 |
-| `intended_balcon_amount`| float64 | 994.971 | | `proposed_credit_limit`| float64| 12 |
-| `payment_type` | object| 5 | | `foreign_request` | int64 | 2 |
-| `zip_count_4w` | int64 | 6.306 | | `source` | object | 2 |
-| `velocity_6h` | float64 | 998.687 | | `session_length_in_minutes`| float64| 994.887 |
-| `velocity_24h` | float64 | 998.940 | | `device_os` | object | 5 |
-| `velocity_4w` | float64 | 998.318 | | `keep_alive_session` | int64 | 2 |
-| `bank_branch_count_8w`| int64 | 2.326 | | `device_distinct_emails_8w`| int64 | 4 |
-| `date_of_birth_distinct...`| int64 | 40 | | `device_fraud_count` | int64 | 1 |
-| `employment_status` | object| 7 | | `month` | int64 | 8 |
+| Coluna                         | Tipo    | Cardinalidade |     | Coluna                      | Tipo    | Cardinalidade |
+| ------------------------------ | ------- | ------------- | --- | --------------------------- | ------- | ------------- |
+| `fraud_bool`                   | int64   | 2             |     | `credit_risk_score`         | int64   | 551           |
+| `income`                       | float64 | 9             |     | `email_is_free`             | int64   | 2             |
+| `name_email_similarity`        | float64 | 998.861       |     | `housing_status`            | object  | 7             |
+| `prev_address_months_count`    | int64   | 374           |     | `phone_home_valid`          | int64   | 2             |
+| `current_address_months_count` | int64   | 423           |     | `phone_mobile_valid`        | int64   | 2             |
+| `customer_age`                 | int64   | 9             |     | `bank_months_count`         | int64   | 33            |
+| `days_since_request`           | float64 | 989.330       |     | `has_other_cards`           | int64   | 2             |
+| `intended_balcon_amount`       | float64 | 994.971       |     | `proposed_credit_limit`     | float64 | 12            |
+| `payment_type`                 | object  | 5             |     | `foreign_request`           | int64   | 2             |
+| `zip_count_4w`                 | int64   | 6.306         |     | `source`                    | object  | 2             |
+| `velocity_6h`                  | float64 | 998.687       |     | `session_length_in_minutes` | float64 | 994.887       |
+| `velocity_24h`                 | float64 | 998.940       |     | `device_os`                 | object  | 5             |
+| `velocity_4w`                  | float64 | 998.318       |     | `keep_alive_session`        | int64   | 2             |
+| `bank_branch_count_8w`         | int64   | 2.326         |     | `device_distinct_emails_8w` | int64   | 4             |
+| `date_of_birth_distinct...`    | int64   | 40            |     | `device_fraud_count`        | int64   | 1             |
+| `employment_status`            | object  | 7             |     | `month`                     | int64   | 8             |
 
 </details>
-
 
 ## 1.2 O Problema do Desbalanceamento
 
@@ -198,16 +180,16 @@ O principal desafio deste Dataset não é a qualidade do dado, mas sim a assimet
 - **Fraudes:** Apenas **1.10%** (11.029)
 
 **🔹 O que isso significa para o Negócio?**
-Um modelo "burro" que negue todas as aberturas de conta teria 98.90% de "Acurácia", mas quebraria a instituição bancária ao rejeitar todos os clientes legítimos. A prioridade matemática passa a ser métricas como **Recall** (quantas das fraudes reais nós pegamos?) controlando o **F1-Score / Precision** (quantos clientes bons nós negamos por engano?). Isso nos força a usar técnicas de *Cost-Sensitive Learning* na modelagem.
+Um modelo "burro" que negue todas as aberturas de conta teria 98.90% de "Acurácia", mas quebraria a instituição bancária ao rejeitar todos os clientes legítimos. A prioridade matemática passa a ser métricas como **Recall** (quantas das fraudes reais nós pegamos?) controlando o **F1-Score / Precision** (quantos clientes bons nós negamos por engano?). Isso nos força a usar técnicas de _Cost-Sensitive Learning_ na modelagem.
 
 <br>
 
 ## 1.3 Significância Estatística das Variáveis
 
-Buscamos entender se o padrão de quem comete fraude é genuinamente diferente do cliente comum. Para variáveis contínuas que raramente seguem Distribuição Normal (Gaussiana), não testamos apenas médias, mas toda a "forma" da curva através do Teste U de Mann-Whitney. 
+Buscamos entender se o padrão de quem comete fraude é genuinamente diferente do cliente comum. Para variáveis contínuas que raramente seguem Distribuição Normal (Gaussiana), não testamos apenas médias, mas toda a "forma" da curva através do Teste U de Mann-Whitney.
 
-> *ℹ️ **Glossário Explicativo: Teste U de Mann-Whitney***
-> *Um teste estatístico não-paramétrico. Em vez de calcular qual a média da idade dos fraudadores vs legítimos, ele ranqueia todos os clientes ordenados por idade e avalia se os fraudadores consistentemente ocupam posições mais altas rankeadas de forma sistemática.*
+> \*ℹ️ **Glossário Explicativo: Teste U de Mann-Whitney\***
+> _Um teste estatístico não-paramétrico. Em vez de calcular qual a média da idade dos fraudadores vs legítimos, ele ranqueia todos os clientes ordenados por idade e avalia se os fraudadores consistentemente ocupam posições mais altas rankeadas de forma sistemática._
 
 **Resultado:** 24 de 26 variáveis numéricas apresentam padrões matemáticos significativamente diferentes para o grupo de fraude (p-value < 0.05). As exclusões foram `session_length_in_minutes` e `device_fraud_count`.
 
@@ -251,31 +233,32 @@ Buscamos entender se o padrão de quem comete fraude é genuinamente diferente d
 
 Correlação de Pearson (linear) falha miseravelmente em contextos de fraude onde os preditores são catérgicos binários ou não lineares. O Score de "Informação Mútua" (MI) é matematicamente imune a esses problemas estatísticos.
 
-> *ℹ️ **Glossário Explicativo: Mutual Information (MI)***
-> *Mede a redução da nossa "incerteza" estatística sobre a fraude ao conhecermos uma dada variável. É a quantidade de informação (em bits ou nats) que uma variável compartilha sobre a outra, podendo capturar sinergias ocultas.*
+> \*ℹ️ **Glossário Explicativo: Mutual Information (MI)\***
+> _Mede a redução da nossa "incerteza" estatística sobre a fraude ao conhecermos uma dada variável. É a quantidade de informação (em bits ou nats) que uma variável compartilha sobre a outra, podendo capturar sinergias ocultas._
 
 **🔹 O que isso significa para o Negócio?**
 As três variáveis de mais alto poder preditivo de fraude não são "idade" ou "renda" do cliente, mas sim sua "Jornada Digital" no momento da abertura da conta. O ranking de MI nos revela um atacante que:
+
 1. Reitera o uso do dispositivo com e-mails massivos diferenciados (`device_distinct_emails`).
 2. Utiliza e-mails gratuitos (`email_is_free`) que são muito fáceis de serem gerados em lote por robôs.
-3. Não mantém engajamento duradouro com a sessão (`keep_alive_session`). 
+3. Não mantém engajamento duradouro com a sessão (`keep_alive_session`).
 
 <details>
 <summary><b> Expandir Ranking de Mutual Information</b></summary>
 
-| Posicao | Variavel                           | MI Score |
-| ------- | ---------------------------------- | -------- |
-| 1       | `device_distinct_emails_8w`        | 0.010217 |
-| 2       | `email_is_free`                    | 0.010028 |
-| 3       | `keep_alive_session`               | 0.009970 |
-| 4       | `phone_mobile_valid`               | 0.007698 |
-| 5       | `phone_home_valid`                 | 0.006016 |
-| 6       | `proposed_credit_limit`            | 0.004636 |
-| 7       | `customer_age`                     | 0.004512 |
-| 8       | `income`                           | 0.003630 |
-| 9       | `has_other_cards`                  | 0.001935 |
-| 10      | `credit_risk_score`                | 0.001892 |
-| ...      | demais contidas na matriz integral do arquivo `eda_summary` | ... |
+| Posicao | Variavel                                                    | MI Score |
+| ------- | ----------------------------------------------------------- | -------- |
+| 1       | `device_distinct_emails_8w`                                 | 0.010217 |
+| 2       | `email_is_free`                                             | 0.010028 |
+| 3       | `keep_alive_session`                                        | 0.009970 |
+| 4       | `phone_mobile_valid`                                        | 0.007698 |
+| 5       | `phone_home_valid`                                          | 0.006016 |
+| 6       | `proposed_credit_limit`                                     | 0.004636 |
+| 7       | `customer_age`                                              | 0.004512 |
+| 8       | `income`                                                    | 0.003630 |
+| 9       | `has_other_cards`                                           | 0.001935 |
+| 10      | `credit_risk_score`                                         | 0.001892 |
+| ...     | demais contidas na matriz integral do arquivo `eda_summary` | ...      |
 
 </details>
 
@@ -290,7 +273,7 @@ Os modelos de regressão de árvore de decisão irão iterar sobre fatias dos da
 - **Moradia (`housing_status`):** Atenção crítica à tag de moradia "BA". Ela puxa estonteantes **3.75%** de volume de fraude na sub-amostra; Este é um nicho quase 3.4x mais tóxico estatisticamente do que um usuário não pertencente a esta classe.
 
 **🔹 O que isso significa para o Negócio?**
-Um solicitante via *Teleapp* (Aplicativo Telefonico - Fraude Base = 1.59%), que utilize Windows (Fraude= 2.47%) e seja da base Habitacional Categoria *BA* (Fraude=3.75%) deve ser sumariamente bloqueado ou submetido à triagem manual pesada de prevenção antes da emissão de cartões temporários.
+Um solicitante via _Teleapp_ (Aplicativo Telefonico - Fraude Base = 1.59%), que utilize Windows (Fraude= 2.47%) e seja da base Habitacional Categoria _BA_ (Fraude=3.75%) deve ser sumariamente bloqueado ou submetido à triagem manual pesada de prevenção antes da emissão de cartões temporários.
 
 <br>
 
@@ -298,31 +281,31 @@ Um solicitante via *Teleapp* (Aplicativo Telefonico - Fraude Base = 1.59%), que 
 
 Em modelos não baseados em ramificação em Árvores (ex. Regressão Logística e Redes Neurais - Multilayer Perceptron), outliers extremos causam explosões nos vetores de otimização de gradiente.
 
-> *ℹ️ **Glossário Explicativo: Método IQR (Interquartile Range)***
-> *Ao invés de definir que um valor é anômalo só porque ele é maior que a média + Desvio Padrão, o método inter-quartil ordena todo o dataset, observa estritamente os usuários do "meio" (do percentil 25 ao 75) traçando uma fronteira em seu tamanho, punindo dados fora dessa redoma da "normalidade".*
+> \*ℹ️ **Glossário Explicativo: Método IQR (Interquartile Range)\***
+> _Ao invés de definir que um valor é anômalo só porque ele é maior que a média + Desvio Padrão, o método inter-quartil ordena todo o dataset, observa estritamente os usuários do "meio" (do percentil 25 ao 75) traçando uma fronteira em seu tamanho, punindo dados fora dessa redoma da "normalidade"._
 
-Aferimos o dataset usando o limite "Boxplot" padrão de 1.5x o IQR. 
+Aferimos o dataset usando o limite "Boxplot" padrão de 1.5x o IQR.
 
 **🔹 O que isso significa para o Negócio?**
-Variáveis como `proposed_credit_limit` tem um surto: **24.17%** da base é qualificada estatisticamente como Outlier. A Feature `bank_branch_count_8w` passa disso, chegando a distorções gravíssimas em 17% dos clientes. Estes limites astronômicos farão as Redes Neurais perderem o rumo (Backpropagation instability). Teremos obrigatoriamente que aplicar `MinMaxScaler` ou `RobustScaler` com percentuais *clipados (Clipping)* rigorosos no desenvolvimento das pipelines de engenharia de dados.
+Variáveis como `proposed_credit_limit` tem um surto: **24.17%** da base é qualificada estatisticamente como Outlier. A Feature `bank_branch_count_8w` passa disso, chegando a distorções gravíssimas em 17% dos clientes. Estes limites astronômicos farão as Redes Neurais perderem o rumo (Backpropagation instability). Teremos obrigatoriamente que aplicar `MinMaxScaler` ou `RobustScaler` com percentuais _clipados (Clipping)_ rigorosos no desenvolvimento das pipelines de engenharia de dados.
 
 <details>
 <summary><b> Tabela Completa de Outliers por Features </b></summary>
 
-| Variavel                           | Outliers | % Outliers | Limite Inferior | Limite Superior |
-| ---------------------------------- | -------- | ---------- | --------------- | --------------- |
-| `proposed_credit_limit`            | 241.742  | 24.17%     | -250.00         | 950.00          |
-| `has_other_cards`                  | 222.988  | 22.30%     | 0.00            | 0.00            |
-| `intended_balcon_amount`           | 222.702  | 22.27%     | -10.43          | 14.23           |
-| `bank_branch_count_8w`             | 175.243  | 17.52%     | -35.00          | 61.00           |
-| `prev_address_months_count`        | 157.320  | 15.73%     | -20.50          | 31.50           |
-| `phone_mobile_valid`               | 110.324  | 11.03%     | 1.00            | 1.00            |
-| `days_since_request`               | 94.834   | 9.48%      | -0.02           | 0.06            |
-| `session_length_in_minutes`        | 78.789   | 7.88%      | -5.54           | 17.51           |
-| `zip_count_4w`                     | 59.871   | 5.99%      | -681.00         | 3519.00         |
-| `current_address_months_count`     | 41.001   | 4.10%      | -147.50         | 296.50          |
-| `device_distinct_emails_8w`        | 31.933   | 3.19%      | 1.00            | 1.00            |
-| `foreign_request`                  | 25.242   | 2.52%      | 0.00            | 0.00            |
+| Variavel                       | Outliers | % Outliers | Limite Inferior | Limite Superior |
+| ------------------------------ | -------- | ---------- | --------------- | --------------- |
+| `proposed_credit_limit`        | 241.742  | 24.17%     | -250.00         | 950.00          |
+| `has_other_cards`              | 222.988  | 22.30%     | 0.00            | 0.00            |
+| `intended_balcon_amount`       | 222.702  | 22.27%     | -10.43          | 14.23           |
+| `bank_branch_count_8w`         | 175.243  | 17.52%     | -35.00          | 61.00           |
+| `prev_address_months_count`    | 157.320  | 15.73%     | -20.50          | 31.50           |
+| `phone_mobile_valid`           | 110.324  | 11.03%     | 1.00            | 1.00            |
+| `days_since_request`           | 94.834   | 9.48%      | -0.02           | 0.06            |
+| `session_length_in_minutes`    | 78.789   | 7.88%      | -5.54           | 17.51           |
+| `zip_count_4w`                 | 59.871   | 5.99%      | -681.00         | 3519.00         |
+| `current_address_months_count` | 41.001   | 4.10%      | -147.50         | 296.50          |
+| `device_distinct_emails_8w`    | 31.933   | 3.19%      | 1.00            | 1.00            |
+| `foreign_request`              | 25.242   | 2.52%      | 0.00            | 0.00            |
 
 </details>
 
@@ -330,18 +313,17 @@ Variáveis como `proposed_credit_limit` tem um surto: **24.17%** da base é qual
 
 ## 1.7 Downcasting de Memória Otimizada
 
-O uso de memória de 240MB pode não parecer grande na base bruta, mas quando um pipeline efetua One-Hot Encoding ou SMOTE (Aumento de dimensionalidade gerando fatiamento de arrays no C++ / Cython), geramos sobrecarga no kernel ou até mesmo *Memory Leaks*.
+O uso de memória de 240MB pode não parecer grande na base bruta, mas quando um pipeline efetua One-Hot Encoding ou SMOTE (Aumento de dimensionalidade gerando fatiamento de arrays no C++ / Cython), geramos sobrecarga no kernel ou até mesmo _Memory Leaks_.
 
-> *ℹ️ **Glossário Explicativo: Memory Downcasting***
-> *Consiste em ler e analisar as varáveis estáticas nas memórias e perceber se suas propriedades se apoiam perfeitamente num espaço alocado imensamente menor da arquitetura padrão.*
+> \*ℹ️ **Glossário Explicativo: Memory Downcasting\***
+> _Consiste em ler e analisar as varáveis estáticas nas memórias e perceber se suas propriedades se apoiam perfeitamente num espaço alocado imensamente menor da arquitetura padrão._
 
-A maior parte dos booleanos do projeto não requer vetores do tipo `int64` alocados, e sim `int8`. 
-O *Footprint* da base de dados será drasticamente reduzido pelos scripts em Python para que o tuning e simulações com os modelos de Árvore Random Forest ocorram lisos e otimizados pelo hardware durante a Pipeline.
+A maior parte dos booleanos do projeto não requer vetores do tipo `int64` alocados, e sim `int8`.
+O _Footprint_ da base de dados será drasticamente reduzido pelos scripts em Python para que o tuning e simulações com os modelos de Árvore Random Forest ocorram lisos e otimizados pelo hardware durante a Pipeline.
 
 </details>
 
 ---
-
 
 # 2. Arquitetura Geral
 
@@ -381,14 +363,64 @@ O Fraud Sentinel adota uma **arquitetura modular orientada a pipeline**, organiz
 
 ## 2.3 Fluxo Macro (Requisicao ate Resposta)
 
-| Etapa                               | Entrada                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Arquivo                                                                                                                                 | Descricao                                                                                                                                                                                                                                                                                                                                                                                         | Saida                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Ingestao de Dados                | `data/raw/Base.csv` -- O dataset bruto do BAF Suite (NeurIPS 2022) e o ponto de partida de todo o sistema. Contem todas as features sociodemograficas e comportamentais das aberturas de conta, com rotulagem binaria de fraude. E necessario como fonte primaria porque todo o pipeline depende de dados historicos rotulados para aprender padroes.                                                                                                                    | `make_dataset.py`                                                                                                                       | Carrega o CSV bruto, aplica downcasting de tipos numericos (float64 para float32, int64 para int8) para reduzir consumo de RAM, valida a existencia da coluna target (`fraud_bool`), e executa a divisao estratificada 80/20 que garante matematicamente que a proporcao de fraudes (~1%) seja identica nos conjuntos de treino e teste.                                                          | `data/processed/X_train.csv`, `X_test.csv`, `y_train.csv`, `y_test.csv` -- Quatro arquivos CSV limpos e otimizados. Sao separados em features (X) e target (y) porque o scikit-learn exige essa separacao. O split estratificado e salvo em disco para que todas as etapas subsequentes trabalhem sobre exatamente os mesmos dados, garantindo reprodutibilidade.                                                                                                                                                 |
-| 2. Analise Exploratoria             | `data/raw/Base.csv` -- O dataset bruto original e carregado novamente (nao os processados) porque a EDA precisa analisar os dados no estado natural, sem transformacoes de escala ou encoding, para identificar problemas reais como nulos, outliers e distribuicoes originais.                                                                                                                                                                                          | `generate_eda_report.py`                                                                                                                | Executa um raio-X completo dos dados: calcula estatisticas descritivas, quantifica outliers (IQR), roda testes de hipotese (Mann-Whitney U) para validar significancia estatistica de cada feature, calcula Mutual Information para ranquear importancia, gera boxplots comparativos, heatmaps de correlacao (Spearman), analises de risco categorico, e um dashboard HTML interativo (Sweetviz). | `reports/data/*.csv` (7 tabelas de metricas), `reports/figures/eda/*.png` (7+ graficos), `reports/eda_summary.txt` (relatorio textual consolidado), `reports/sweetviz_report.html` (dashboard interativo) -- Esses artefatos servem para o cientista de dados tomar decisoes informadas sobre quais features usar, quais tratamentos aplicar, e validar cientificamente que os dados possuem sinal discriminativo para fraude.                                                                                    |
-| 3. Benchmark de Modelos (Opcional)  | `data/processed/X_train.csv`, `y_train.csv` -- Os dados de treino processados sao necessarios porque o benchmark precisa avaliar algoritmos sobre dados comparaveis. Uma amostra estratificada de 50k linhas e extraida para viabilizar a execucao em tempo razoavel sem perder representatividade estatistica.                                                                                                                                                          | `compare_models.py`                                                                                                                     | Executa um torneio entre multiplos algoritmos (LogReg, DecisionTree, RandomForest, GradientBoosting, XGBoost, e opcionalmente LightGBM e CatBoost) usando validacao cruzada estratificada. Tecnicas de Cost-Sensitive Learning sao aplicadas para lidar com desbalanceamento. Mede ROC-AUC, Recall, Precision e F1.                           | `reports/data/models_comparison_results.csv` (tabela com medias e desvios de todas as metricas), `reports/model_comparison_report.txt` (relatorio executivo com ranking), `reports/figures/model_comparison_metrics.png` (grafico de barras comparativo) -- Esses artefatos permitem escolher objetivamente qual algoritmo tem melhor potencial antes de investir tempo na otimizacao de hiperparametros.                                                                                                         |
-| 4. Treinamento e Otimizacao         | `data/processed/X_train.csv`, `y_train.csv` -- Os dados de treino sao necessarios para o modelo aprender os padroes de fraude. Cada script de modelo os carrega para construir o pipeline completo (preprocessamento + classificador) e otimizar hiperparametros via busca exaustiva.                                                                                                                                                                                    | `reg_log_model.py`, `decision_tree_model.py`, `random_forest_model.py`, `xgboost_model.py`, `mlp_model.py`, `isolation_forest_model.py` | Cada script cria um pipeline (preprocessor + modelo), executa GridSearchCV com Stratified K-Fold (3 folds) para encontrar os melhores hiperparametros, retreina o modelo vencedor no dataset completo (quando aplicavel), e executa Threshold Tuning que varre a curva Precision-Recall para encontrar o limiar de decisao que maximiza o F1-Score.                                               | `models/{nome}_best_model.pkl` (modelo serializado pronto para producao), `models/model_{nome}_{timestamp}.pkl` (copia versionada para historico), `models/{nome}_threshold.txt` (threshold otimizado), `models/{nome}_best_model_params.txt` (hiperparametros vencedores), `reports/experiments_log.json` (registro do experimento) -- Cada artefato cumpre um papel: o PKL e o modelo reutilizavel, o threshold define o ponto de operacao, e o JSON garante rastreabilidade completa de todos os experimentos. |
-| 5. Avaliacao Final                  | `data/processed/X_test.csv`, `y_test.csv` (dados que o modelo nunca viu) e `models/{nome}_best_model.pkl` (modelo treinado) -- O blind test set e essencial porque simula dados reais de producao. Usar dados de treino para avaliar geraria metricas artificialmente infladas (overfitting). O modelo e carregado serializado para simular exatamente o que aconteceria em producao.                                                                                    | `visualize.py`                                                                                                                          | Carrega o modelo treinado e os dados de teste, gera predicoes de classe e probabilidade, calcula metricas finais (ROC-AUC, Precision, Recall, F1), plota a Matriz de Confusao (visualiza falsos positivos e negativos), a Curva ROC (capacidade de discriminacao) e o grafico de importancia de features (explicabilidade). Atualiza o log de experimentos com as metricas reais.                 | `reports/figures/confusion_matrix_{nome}.png`, `reports/figures/roc_curve_{nome}.png`, `reports/figures/feature_importance_coefficients.png` (se modelo linear) -- Graficos essenciais para validar se o modelo esta pronto para producao e comunicar resultados para stakeholders. O `experiments_log.json` e atualizado com metricas reais de teste, fechando o ciclo de rastreabilidade.                                                                                                                       |
-| 6. Simulacao de Producao (Opcional) | Modelos balanceados `models/trainers/*_best_model.pkl` de 3 arquiteturas diferentes (XGBoost, LightGBM, MLP) + limiares otimizados + Conjunto Real `data/processed/X_test.csv` -- O Simulador simula o ambiente Real-Time de banco: a cada milissegundo as features batem no comitê de inferência e a decisão majoritária é tomada. O gabarito (y_test) e usado apenas para mostrar se o comitê acertou e quantificar retorno e atrito financeiro gerado para o cliente. | `predict_ensemble.py`, `simulate_production.py`                                                                                         | Recebe as transações como streaming de micro-serviço e orquestra a Ingestão no Comitê de 3 modelos de ML. Se `Fraud_Votes >= 2`: BLOQUEIO. Se `Fraud_Votes == 1` mas o votante for o _Champion de Negocio_ (LightGBM): CAI PARA REVISÃO MANUAL devido ao altíssimo risco estatístico. Qualquer outra coisa é aprovada para não gerar atrito.                                                      | Saida Dashboard Console interativa com emoji para rastreio transacional unitário da tomada de decisão dos modelos. Finaliza salvando na persistência física o artefato executivo `reports/simulation_summary.txt`, que resume todas as TN, TP, Falsos positivos/negativos e traduz o lucro evitado em $$ vs atrito operacional da operação global.                                                                                                                                                                |
+### 1. Ingestão de Dados
+
+- **Arquivo Responsável:** `make_dataset.py`
+- **Entrada:** `data/raw/Base.csv` (Dataset BAF Suite - NeurIPS 2022)
+  - É a base bruta contendo features comportamentais de aberturas de conta e o rótulo de fraude (`fraud_bool`). O pipeline todo depende dessa massa de dados para o treinamento.
+- **Descrição da Atividade:**
+  1. Carrega o CSV bruto.
+  2. Aplica _downcasting_ de tipos numéricos (ex: `float64` para `float32`) visando reduzir intensamente o consumo de RAM.
+  3. Valida se a coluna target existe.
+  4. Separa os dados de Forma Estratificada (80/20) para preservar o percentual de fraude (aprox. 1%).
+- **Saída Gerada:** Quatro artefatos isolados para o framework scikit-learn (`data/processed/X_train.csv`, `X_test.csv`, `y_train.csv`, `y_test.csv`).
+
+### 2. Análise Exploratória (EDA)
+
+- **Arquivo Responsável:** `generate_eda_report.py`
+- **Entrada:** `data/raw/Base.csv` (Original, sem aplicar limpezas intermediárias).
+- **Descrição da Atividade:**
+  1. Cria um check-up dos dados calculando estatísticas descritivas básicas.
+  2. Otimiza quantificação de Outliers pela regra do IQR.
+  3. Aciona o cálculo estatístico de Mann-Whitney U e o agrupamento condicional `Mutual Information` rankeando a capacidade de previsão de cada variável.
+  4. Monta as correlações visuais e cria o HTML Sweetviz.
+- **Saída Gerada:** Tabelas de suporte em `reports/data/*.csv`, Gráficos PNG das variações (em `reports/figures/eda/`), Relatório textual `reports/eda_summary.txt` e o painel dinâmico `reports/sweetviz_report.html`.
+
+### 3. Benchmark de Modelos (Opcional)
+
+- **Arquivo Responsável:** `compare_models.py`
+- **Entrada:** `data/processed/X_train.csv`, `y_train.csv` (Uma extração proporcional rápida de 50 mil linhas para agilizar execuções iterativas).
+- **Descrição da Atividade:**
+  Roda múltiplos algoritmos contra testes cegos em camadas (Stratified K-Fold CV), ativando flags _Cost-Sensitive_ para dar pesos diferentes aos erros, avaliando qual Família de IA perfoma melhor (LogReg, Random Forest, XGBoost etc).
+- **Saída Gerada:** Matriz e ranking tabular subistancializado (`reports/data/models_comparison_results.csv`), sumário de performance `reports/model_comparison_report.txt` e um gráfico PNG das métricas F1/ROC-AUC.
+
+### 4. Treinamento e Otimização
+
+- **Arquivos Responsáveis:** `reg_log_model.py`, `decision_tree_model.py`, `random_forest_model.py`, `xgboost_model.py`, `mlp_model.py`, `isolation_forest_model.py`
+- **Entrada:** `data/processed/X_train.csv`, `y_train.csv`.
+- **Descrição da Atividade:**
+  1. Para cada modelo acionado, cria a `Pipeline` (junta o Transformador/Escalonador com o Classificador).
+  2. Executa a _GridSearchCV_ procurando o melhor pacote de Hiperparâmetros.
+  3. Consolida ensinando ao modelo a base inteira num retreino _Champion_.
+  4. Varre a Curva _Precision-Recall_ para calibrar um threshold (limiar de decisão) otimizado.
+- **Saída Gerada:** Os cérebros treinados `models/*_best_model.pkl` prontos para inferência em disco rígido, seus versionamentos para histórico, os textos dos limiares de decisão `*_threshold.txt`, as configs ótimas `*_best_model_params.txt`, e a persistência total dos scores operacionais via `reports/experiments_log.json`.
+
+### 5. Avaliação Final
+
+- **Arquivo Responsável:** `visualize.py`
+- **Entrada:** `data/processed/X_test.csv`, `y_test.csv` (Os dados intocados de blind-test). Puxa também os `.pkl` gerados no passo anterior.
+- **Descrição da Atividade:**
+  A etapa expõe o modelo ao Teste Cego para extrair suas probabilidades e classe predita. Processa as métricas definitivas (ROC-AUC, Precision, Recall, F1) e consolida os gráficos avaliativos.
+- **Saída Gerada:** Gráficos cruciais da capacidade em tempo real (`reports/figures/confusion_matrix_*.png`, etc) e uma atualização direta da linha final constando as métricas no log unificado `experiments_log.json`.
+
+### 6. Previsão Discreta (Opcional)
+
+- **Arquivo Responsável:** `predict_model.py` (Orquestrado por `main.py` com a flag `--predict`)
+- **Entrada:** Pipeline Final Serializado `models/*_best_model.pkl` do algoritmo validado.
+- **Descrição da Atividade:**
+  1. Carrega amostras do Dataset de Teste.
+  2. Simula o ambiente real e faz predições contendo a probabilidade para as contas não serem legítimas em tempo real.
+- **Saída Gerada:** Exibição em modo console interativa para acompanhamento individual (Aprovado, Bloqueado, etc) do pipeline executório.
 
 ## 2.4 Separacao de Camadas
 
@@ -619,7 +651,7 @@ A classe `IForestWrapper` inverte o score de anomalia (`-decision_function`), no
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Funcao principal** | `compare_algorithms()`                                                                                                                              |
 | **Competidores**     | LogReg, DecisionTree, RandomForest, GradientBoosting, HistGradientBoosting, ExtraTrees, AdaBoost, XGBoost, LightGBM (opcional), CatBoost (opcional) |
-| **Metodologia**      | Stratified 5-Fold CV com pipeline focado em Cost-Sensitive Learning (sem SMOTE)                                                                                     |
+| **Metodologia**      | Stratified 5-Fold CV com pipeline focado em Cost-Sensitive Learning (sem SMOTE)                                                                     |
 | **Metricas**         | ROC-AUC, Recall, Precision, F1-Score                                                                                                                |
 | **Saidas**           | `models_comparison_results.csv`, `model_comparison_report.txt`, `model_comparison_metrics.png`                                                      |
 
@@ -912,6 +944,7 @@ Refatora o problema de duplicação que existia na versão primária, gerando Or
 ## 8.8 Motor de Simulação (Ensemble PoV & ROI)
 
 Implementado com vetores `pandas` de altíssima velocidade, prevê dados em "Batch Array" diretamente pelos 3 Modelos Comitê otimizados simultaneamente (MLP, Xgb, LightGBM). Utiliza CLI (Command Line Interface) Visual para reportar:
+
 - O Veredito de Maioria Simples ou Veto Especial, traduzidos em True Positives e False Negatives.
 - Uma Inteligência de Negócio Financeira (`simulate_production.py`) cruza os erros contra um Ticket Médio de negócio predefinido e entrega ao usuário e Stakeholders um Documento final (`simulation_summary.txt`) contendo Patrimônio Salvo, Custo de Atrito, Taxa da Operação e o Lucro Resgatado em Dinheiro Requerido.
 
@@ -929,7 +962,6 @@ Implementado com vetores `pandas` de altíssima velocidade, prevê dados em "Bat
 | `.env`         | Raiz                | Reservado (vazio)              | --           |
 
 ---
-
 
 # 11. Estrategia de Logs e Monitoramento
 
@@ -1023,9 +1055,10 @@ Cada treinamento appenda um registro contendo:
 
 # 15. Trabalhos Recentes Refatorados (Changelog Histórico)
 
-O projeto sofria de graves limitações como *Código Duplicado de Alto Impacto* nos scripts da pasta Modelos, variáveis ociosas nos `dict` originais, importações duplas, ausência de Suíte de Testes (TDD) e dependência engessada a rotinas arcaicas e ineficientes de re-sampling como SMOTE (revertido para *Cost-Sensitive Learning*).
+O projeto sofria de graves limitações como _Código Duplicado de Alto Impacto_ nos scripts da pasta Modelos, variáveis ociosas nos `dict` originais, importações duplas, ausência de Suíte de Testes (TDD) e dependência engessada a rotinas arcaicas e ineficientes de re-sampling como SMOTE (revertido para _Cost-Sensitive Learning_).
 
 Todas as restrições foram abordadas e neutralizadas nas Sprints recentes pelas implementações de:
+
 - **`BaseTrainer.py`** como classe mestra de Treino que absorve 80% do Boilerplate e engessa o Pipeline End-to-End num túnel só de código.
 - Escavação de Testes de Unidade através do Framework `pytest` nativo localizados na pasta `tests/` avaliando exatidão da Pipeline de Dados e Feature Engineering.
 - Refatoração total para Batch Vectorization nos simuladores preditivos, derrubando o inferência de horas para segundos na simulação macro.
