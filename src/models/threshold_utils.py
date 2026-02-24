@@ -233,10 +233,23 @@ def log_experiment(
     if extra_data:
         experiment_data.update(extra_data)
     
-    experiments_log_path = reports_dir / "experiments_log.jsonl"
+    experiments_log_path = reports_dir / "experiments_log.json"
     
-    with open(experiments_log_path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(experiment_data) + "\n")
+    # Le e injeta o objeto JSON no Array
+    history = []
+    if experiments_log_path.exists():
+        try:
+            with open(experiments_log_path, "r", encoding="utf-8") as f:
+                history = json.load(f)
+                if not isinstance(history, list):
+                    history = [history]
+        except json.JSONDecodeError:
+            pass # Se arquivo estava corrompido, zera e recomeca
+            
+    history.append(experiment_data)
     
+    with open(experiments_log_path, "w", encoding="utf-8") as f:
+        json.dump(history, f, indent=4)
+        
     logger.info(f"📝 Experimento registrado em: {experiments_log_path}")
     return experiments_log_path

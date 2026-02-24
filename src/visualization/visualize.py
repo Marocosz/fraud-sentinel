@@ -218,21 +218,30 @@ def evaluate(model_name="logreg"):
         "confusion_matrix": confusion_matrix(y_test, y_pred_optimal).tolist()
     }
     
-    experiments_log_path = REPORTS_DIR / "experiments_log.jsonl"
+    experiments_log_path = REPORTS_DIR / "experiments_log.json"
     
     if experiments_log_path.exists():
         try:
             history = []
             with open(experiments_log_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip():
-                        history.append(json.loads(line))
+                try:
+                    history = json.load(f)
+                    if not isinstance(history, list):
+                        history = [history]
+                except json.JSONDecodeError:
+                    # Se falhar, resgatar linhas soltas (transicao JSONL -> JSON)
+                    f.seek(0)
+                    for line in f:
+                        if line.strip() and line.startswith('{'):
+                            history.append(json.loads(line))
                 
             if history:
-                # Procure pelo ultimo experimento pertencente a este modelo
+                # Procure pelo ultimo experimento tentando cruzar nome do arquivo
+                # O log do base_trainer gera a chave 'model_path' (Ex: 'models/model_xgb_2026.pkl')
                 target_exp = None
                 for exp in reversed(history):
-                    if exp.get("model_type") == model_name:
+                    saved_path = str(exp.get("model_path", ""))
+                    if f"_{model_name}_" in saved_path:
                         target_exp = exp
                         break
                 
@@ -242,8 +251,7 @@ def evaluate(model_name="logreg"):
                     history[-1].update(metrics_data) # Fallback
                 
                 with open(experiments_log_path, "w", encoding="utf-8") as f:
-                    for exp in history:
-                        f.write(json.dumps(exp) + "\n")
+                    json.dump(history, f, indent=4)
                 print(f"📝 Metricas adicionadas ao log: {experiments_log_path}")
             else:
                 print("⚠️ Log de experimentos vazio.")

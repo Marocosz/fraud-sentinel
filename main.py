@@ -34,7 +34,6 @@ try:
     from src.config import PROCESSED_DATA_DIR, MODELS_DIR, REPORTS_DIR, FIGURES_DIR, RAW_DATA_PATH
     from src.data.make_dataset import load_and_split_data
     from src.visualization.generate_eda_report import EDAReporter
-    from src.models.compare_models import compare_algorithms
     from src.models.trainers.reg_log_model import train_logistic_regression
     from src.models.trainers.random_forest_model import train_random_forest
     from src.models.trainers.xgboost_model import train_xgboost
@@ -108,7 +107,6 @@ def main():
     # Flags de Controle
     parser.add_argument("--no-reset", action="store_true", help="Inibe a limpeza inicial dos arquivos.")
     parser.add_argument("--skip-eda", action="store_true", help="Pula a etapa de Analise Exploratoria.")
-    parser.add_argument("--compare-models", action="store_true", help="Executa o torneio de modelos (Demorado).")
     parser.add_argument("--predict", action="store_true", help="Roda uma simulacao de predicao no final.")
     parser.add_argument(
         "--models", type=str, default="all",
@@ -143,16 +141,8 @@ def main():
     else:
         print("\n⏩ [MAESTRO] Pulando EDA (--skip-eda)...")
 
-    # 4. MODEL COMPARISON
-    if args.compare_models:
-        print("\n🥊 [MAESTRO] 3. Movimento: Torneio de Modelos (compare_models.py)")
-        print("   Esta etapa pode levar varios minutos...")
-        compare_algorithms()
-    else:
-        print("\n⏩ [MAESTRO] Pulando Torneio de Modelos (Padrao).")
-
-    # 5. MODEL TRAINING & EVALUATION
-    print("\n🧠 [MAESTRO] 4. Movimento: Treinamento & Avaliacao e Selecao de Modelos")
+    # 4. MODEL TRAINING & EVALUATION
+    print("\n🧠 [MAESTRO] 3. Movimento: Treinamento & Avaliacao e Selecao de Modelos")
     
     # Parse models argument
     if args.models == "all":
@@ -226,9 +216,9 @@ def main():
         else:
             print("\n⚠️ Stacking nao disponivel.")
 
-    # 6. PREDICTION (Opcional)
+    # 5. PREDICTION (Opcional)
     if args.predict:
-        print("\n🔮 [MAESTRO] 6. Movimento: Simulacao de Producao (predict_model.py)")
+        print("\n🔮 [MAESTRO] 4. Movimento: Simulacao de Producao (predict_model.py)")
         pred_model = "xgb" if "xgb" in selected_models else selected_models[0]
         predict_sample(model_name=pred_model)
 
