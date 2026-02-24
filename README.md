@@ -1,10 +1,5 @@
 # Fraud Sentinel - Sistema Avancado de Deteccao de Fraudes Bancarias
 
-> [!NOTE]
-> Link para download da base de dados usada: https://drive.google.com/file/d/1KWKHddAwpZ2HAwsWmL0HWlUXFw8HWf9N/view?usp=sharing
-
----
-
 # Visao Geral do Projeto
 
 | Item                     | Descricao                                                                                                                                                                                                                                                                                             |
@@ -12,36 +7,24 @@
 | **Nome**                 | Fraud Sentinel                                                                                                                                                                                                                                                                                        |
 | **Objetivo Principal**   | Desenvolver um pipeline completo de Machine Learning para detectar fraudes em aberturas de contas bancarias, priorizando a maximizacao do Recall (capturar o maximo de fraudes) com controle de Precision (minimizar falsos alarmes).                                                                 |
 | **Problema que Resolve** | Fraudes bancarias na abertura de contas causam prejuizos financeiros massivos. O sistema automatiza a triagem de solicitacoes, classificando-as como legitimas ou fraudulentas com base em padroes historicos de comportamento e atributos sociodemograficos.                                         |
-| **Publico-Alvo**         | Cientistas de dados, engenheiros de ML, analistas de fraude e instituicoes financeiras que necessitam de um motor de decisao anti-fraude baseado em dados. Tambem serve como projeto de portfolio academico em Data Science.                                                                          |
 | **Contexto de Uso**      | O sistema opera sobre o dataset Bank Account Fraud (BAF) Suite, publicado no NeurIPS 2022, que simula dados reais de aberturas de conta com rotulagem binaria (0 = legitima, 1 = fraude). A taxa de fraude e extremamente baixa (~1%), exigindo tecnicas especializadas de balanceamento e avaliacao. |
-| **Tarefa de Mineracao**  | Classificacao Binaria Supervisionada                                                                                                                                                                                                                                                                  |
+| **Tarefa de Mineracao**  | Classificacao Binaria Supervisionada (O problema e resolvido testando multiplos algoritmos e os unindo em um comite de Ensemble, mas a *"natureza"* do problema matematico ainda e de Classificacao Binaria).                                                                                         |
 | **Metodologia**          | CRISP-DM (Cross-Industry Standard Process for Data Mining)                                                                                                                                                                                                                                            |
 
 ---
 
 # Como Executar o Projeto
 
-## Requisitos
-
-- Python 3.12+
-- ~8GB RAM (recomendado para dataset BAF completo)
-- Windows 10/11 (testado)
-
-## Instalacao
-
-```bash
-git clone https://github.com/Marocosz/fraud-sentinel.git
-cd fraud-sentinel
-python -m venv venvmine
-venvmine\Scripts\activate    # Windows
-pip install -r requirements.txt
-```
+CRIAR DOCKER 
 
 ## Preparacao dos Dados
 
 Baixe o dataset BAF Suite do Kaggle e coloque em `data/raw/Base.csv`:
 
-- URL: https://www.kaggle.com/datasets/sgpjesus/bank-account-fraud-dataset-neurips-2022
+> [!NOTE]
+> Link para download da base de dados usada (drive): https://drive.google.com/file/d/1KWKHddAwpZ2HAwsWmL0HWlUXFw8HWf9N/view?usp=sharing
+> Link para download da base de dados usada (kaggle): https://www.kaggle.com/datasets/sgpjesus/bank-account-fraud-dataset-neurips-2022
+
 
 ## Execucao
 
@@ -172,131 +155,64 @@ python src/models/force_precision.py 0.20
 
 A partir do arquivo `generate_eda_report.py` criamos um relatorio textual (`reports/eda_summary.txt`) com o sumario completo da base de dados. A seguir estao todas as informacoes e descricoes geradas a partir da analise da base inicial.
 
-## 1.1 Carga de Dados
+## 1.1 Carga e Qualidade Visão Geral
 
-O dataset carregado possui **1.000.000 de linhas** e **32 colunas**. A coluna alvo (target) e `fraud_bool`, que indica se a abertura de conta e fraudulenta (1) ou legitima (0).
+O dataset analisado simula aberturas de contas bancárias com uma variável alvo (`fraud_bool`) indicando legitimidade (0) ou fraude (1). O volume de dados é massivo, o que garante representatividade estatística.
 
-## 1.2 Estrutura e Qualidade dos Dados
+- **Volume de Dados:** 1.000.000 de registros únicos.
+- **Dimensionalidade:** 32 features (9 Numéricas Contínuas, 18 Numéricas Discretas, 5 Categóricas).
+- **Qualidade Básica:** 0 nulos e 0 duplicados confirmados. A integridade estrutural da base economiza etapas de *imputation* massivas.
 
-O dataset nao possui **nenhum valor nulo** e **nenhuma linha duplicada** (0.00%). Todos os 1.000.000 de registros sao completos e unicos.
+<br>
 
-### 1.2.1 Tipos de Dados e Cardinalidade
+<details>
+<summary><b> Ver Tabela Completa de Cardinalidade e Tipagem</b></summary>
 
-| Coluna                             | Tipo    | Nulos | % Nulos | Cardinalidade |
-| ---------------------------------- | ------- | ----- | ------- | ------------- |
-| `fraud_bool`                       | int64   | 0     | 0.0%    | 2             |
-| `income`                           | float64 | 0     | 0.0%    | 9             |
-| `name_email_similarity`            | float64 | 0     | 0.0%    | 998.861       |
-| `prev_address_months_count`        | int64   | 0     | 0.0%    | 374           |
-| `current_address_months_count`     | int64   | 0     | 0.0%    | 423           |
-| `customer_age`                     | int64   | 0     | 0.0%    | 9             |
-| `days_since_request`               | float64 | 0     | 0.0%    | 989.330       |
-| `intended_balcon_amount`           | float64 | 0     | 0.0%    | 994.971       |
-| `payment_type`                     | object  | 0     | 0.0%    | 5             |
-| `zip_count_4w`                     | int64   | 0     | 0.0%    | 6.306         |
-| `velocity_6h`                      | float64 | 0     | 0.0%    | 998.687       |
-| `velocity_24h`                     | float64 | 0     | 0.0%    | 998.940       |
-| `velocity_4w`                      | float64 | 0     | 0.0%    | 998.318       |
-| `bank_branch_count_8w`             | int64   | 0     | 0.0%    | 2.326         |
-| `date_of_birth_distinct_emails_4w` | int64   | 0     | 0.0%    | 40            |
-| `employment_status`                | object  | 0     | 0.0%    | 7             |
-| `credit_risk_score`                | int64   | 0     | 0.0%    | 551           |
-| `email_is_free`                    | int64   | 0     | 0.0%    | 2             |
-| `housing_status`                   | object  | 0     | 0.0%    | 7             |
-| `phone_home_valid`                 | int64   | 0     | 0.0%    | 2             |
-| `phone_mobile_valid`               | int64   | 0     | 0.0%    | 2             |
-| `bank_months_count`                | int64   | 0     | 0.0%    | 33            |
-| `has_other_cards`                  | int64   | 0     | 0.0%    | 2             |
-| `proposed_credit_limit`            | float64 | 0     | 0.0%    | 12            |
-| `foreign_request`                  | int64   | 0     | 0.0%    | 2             |
-| `source`                           | object  | 0     | 0.0%    | 2             |
-| `session_length_in_minutes`        | float64 | 0     | 0.0%    | 994.887       |
-| `device_os`                        | object  | 0     | 0.0%    | 5             |
-| `keep_alive_session`               | int64   | 0     | 0.0%    | 2             |
-| `device_distinct_emails_8w`        | int64   | 0     | 0.0%    | 4             |
-| `device_fraud_count`               | int64   | 0     | 0.0%    | 1             |
-| `month`                            | int64   | 0     | 0.0%    | 8             |
+| Coluna | Tipo | Cardinalidade | | Coluna | Tipo | Cardinalidade |
+|---|---|---|---|---|---|---|
+| `fraud_bool` | int64 | 2 | | `credit_risk_score` | int64 | 551 |
+| `income` | float64 | 9 | | `email_is_free` | int64 | 2 |
+| `name_email_similarity` | float64 | 998.861 | | `housing_status` | object | 7 |
+| `prev_address_months_count`| int64 | 374 | | `phone_home_valid` | int64 | 2 |
+| `current_address_months_count`| int64| 423 | | `phone_mobile_valid` | int64 | 2 |
+| `customer_age` | int64 | 9 | | `bank_months_count` | int64 | 33 |
+| `days_since_request` | float64 | 989.330 | | `has_other_cards` | int64 | 2 |
+| `intended_balcon_amount`| float64 | 994.971 | | `proposed_credit_limit`| float64| 12 |
+| `payment_type` | object| 5 | | `foreign_request` | int64 | 2 |
+| `zip_count_4w` | int64 | 6.306 | | `source` | object | 2 |
+| `velocity_6h` | float64 | 998.687 | | `session_length_in_minutes`| float64| 994.887 |
+| `velocity_24h` | float64 | 998.940 | | `device_os` | object | 5 |
+| `velocity_4w` | float64 | 998.318 | | `keep_alive_session` | int64 | 2 |
+| `bank_branch_count_8w`| int64 | 2.326 | | `device_distinct_emails_8w`| int64 | 4 |
+| `date_of_birth_distinct...`| int64 | 40 | | `device_fraud_count` | int64 | 1 |
+| `employment_status` | object| 7 | | `month` | int64 | 8 |
 
-Resumo de tipos: 9 colunas float64, 18 colunas int64, 5 colunas object (categoricas). Uso de memoria: ~244 MB.
+</details>
 
-## 1.3 Dominio das Variaveis Categoricas
 
-| Variavel            | Categorias | Valores                               |
-| ------------------- | ---------- | ------------------------------------- |
-| `payment_type`      | 5          | AA, AB, AC, AD, AE                    |
-| `employment_status` | 7          | CA, CB, CC, CD, CE, CF, CG            |
-| `housing_status`    | 7          | BA, BB, BC, BD, BE, BF, BG            |
-| `source`            | 2          | INTERNET, TELEAPP                     |
-| `device_os`         | 5          | linux, macintosh, other, windows, x11 |
+## 1.2 O Problema do Desbalanceamento
 
-## 1.4 Estatisticas Descritivas (Variaveis Numericas)
+O principal desafio deste Dataset não é a qualidade do dado, mas sim a assimetria da variável alvo:
 
-| Variavel                           | Media   | Desvio Padrao | Min     | Q1 (25%) | Mediana (50%) | Q3 (75%) | Max      |
-| ---------------------------------- | ------- | ------------- | ------- | -------- | ------------- | -------- | -------- |
-| `income`                           | 0.5627  | 0.2903        | 0.10    | 0.30     | 0.60          | 0.80     | 0.90     |
-| `name_email_similarity`            | 0.4937  | 0.2891        | ~0.00   | 0.2252   | 0.4922        | 0.7556   | ~1.00    |
-| `prev_address_months_count`        | 16.72   | 44.05         | -1      | -1       | -1            | 12       | 383      |
-| `current_address_months_count`     | 86.59   | 88.41         | -1      | 19       | 52            | 130      | 428      |
-| `customer_age`                     | 33.69   | 12.03         | 10      | 20       | 30            | 40       | 90       |
-| `days_since_request`               | 1.03    | 5.38          | ~0.00   | 0.007    | 0.015         | 0.026    | 78.46    |
-| `intended_balcon_amount`           | 8.66    | 20.24         | -15.53  | -1.18    | -0.83         | 4.98     | 112.96   |
-| `zip_count_4w`                     | 1572.69 | 1005.37       | 1       | 894      | 1263          | 1944     | 6700     |
-| `velocity_6h`                      | 5665.30 | 3009.38       | -170.60 | 3436.37  | 5319.77       | 7680.72  | 16715.57 |
-| `velocity_24h`                     | 4769.78 | 1479.21       | 1300.31 | 3593.18  | 4749.92       | 5752.57  | 9506.90  |
-| `velocity_4w`                      | 4856.32 | 919.84        | 2825.75 | 4268.37  | 4913.44       | 5488.08  | 6994.76  |
-| `bank_branch_count_8w`             | 184.36  | 459.63        | 0       | 1        | 9             | 25       | 2385     |
-| `date_of_birth_distinct_emails_4w` | 9.50    | 5.03          | 0       | 6        | 9             | 13       | 39       |
-| `credit_risk_score`                | 130.99  | 69.68         | -170    | 83       | 122           | 178      | 389      |
-| `email_is_free`                    | 0.5299  | 0.4991        | 0       | 0        | 1             | 1        | 1        |
-| `phone_home_valid`                 | 0.4171  | 0.4931        | 0       | 0        | 0             | 1        | 1        |
-| `phone_mobile_valid`               | 0.8897  | 0.3133        | 0       | 1        | 1             | 1        | 1        |
-| `bank_months_count`                | 10.84   | 12.12         | -1      | -1       | 5             | 25       | 32       |
-| `has_other_cards`                  | 0.2230  | 0.4163        | 0       | 0        | 0             | 0        | 1        |
-| `proposed_credit_limit`            | 515.85  | 487.56        | 190     | 200      | 200           | 500      | 2100     |
-| `foreign_request`                  | 0.0252  | 0.1569        | 0       | 0        | 0             | 0        | 1        |
-| `session_length_in_minutes`        | 7.54    | 8.03          | -1.00   | 3.10     | 5.11          | 8.87     | 85.90    |
-| `keep_alive_session`               | 0.5769  | 0.4940        | 0       | 0        | 1             | 1        | 1        |
-| `device_distinct_emails_8w`        | 1.02    | 0.18          | -1      | 1        | 1             | 1        | 2        |
-| `device_fraud_count`               | 0.00    | 0.00          | 0       | 0        | 0             | 0        | 0        |
-| `month`                            | 3.29    | 2.21          | 0       | 1        | 3             | 5        | 7        |
+- **Contas Legítimas:** **98.90%** (988.971)
+- **Fraudes:** Apenas **1.10%** (11.029)
 
-## 1.5 Quantificacao de Outliers (Metodo IQR)
+**🔹 O que isso significa para o Negócio?**
+Um modelo "burro" que negue todas as aberturas de conta teria 98.90% de "Acurácia", mas quebraria a instituição bancária ao rejeitar todos os clientes legítimos. A prioridade matemática passa a ser métricas como **Recall** (quantas das fraudes reais nós pegamos?) controlando o **F1-Score / Precision** (quantos clientes bons nós negamos por engano?). Isso nos força a usar técnicas de *Cost-Sensitive Learning* na modelagem.
 
-| Variavel                           | Outliers | % Outliers | Limite Inferior | Limite Superior |
-| ---------------------------------- | -------- | ---------- | --------------- | --------------- |
-| `proposed_credit_limit`            | 241.742  | 24.17%     | -250.00         | 950.00          |
-| `has_other_cards`                  | 222.988  | 22.30%     | 0.00            | 0.00            |
-| `intended_balcon_amount`           | 222.702  | 22.27%     | -10.43          | 14.23           |
-| `bank_branch_count_8w`             | 175.243  | 17.52%     | -35.00          | 61.00           |
-| `prev_address_months_count`        | 157.320  | 15.73%     | -20.50          | 31.50           |
-| `phone_mobile_valid`               | 110.324  | 11.03%     | 1.00            | 1.00            |
-| `days_since_request`               | 94.834   | 9.48%      | -0.02           | 0.06            |
-| `session_length_in_minutes`        | 78.789   | 7.88%      | -5.54           | 17.51           |
-| `zip_count_4w`                     | 59.871   | 5.99%      | -681.00         | 3519.00         |
-| `current_address_months_count`     | 41.001   | 4.10%      | -147.50         | 296.50          |
-| `device_distinct_emails_8w`        | 31.933   | 3.19%      | 1.00            | 1.00            |
-| `foreign_request`                  | 25.242   | 2.52%      | 0.00            | 0.00            |
-| `date_of_birth_distinct_emails_4w` | 9.734    | 0.97%      | -4.50           | 23.50           |
-| `velocity_6h`                      | 9.005    | 0.90%      | -2930.16        | 14047.25        |
-| `credit_risk_score`                | 8.729    | 0.87%      | -59.50          | 320.50          |
-| `velocity_24h`                     | 2.917    | 0.29%      | 354.09          | 8991.67         |
-| `customer_age`                     | 1.373    | 0.14%      | -10.00          | 70.00           |
-| `name_email_similarity`            | 0        | 0.00%      | -0.57           | 1.55            |
-| `income`                           | 0        | 0.00%      | -0.45           | 1.55            |
-| `velocity_4w`                      | 0        | 0.00%      | 2438.80         | 7317.66         |
+<br>
 
-## 1.6 Distribuicao do Target
+## 1.3 Significância Estatística das Variáveis
 
-| Classe       | Total   | Percentual |
-| ------------ | ------- | ---------- |
-| 0 (Legitima) | 988.971 | 98.90%     |
-| 1 (Fraude)   | 11.029  | 1.10%      |
+Buscamos entender se o padrão de quem comete fraude é genuinamente diferente do cliente comum. Para variáveis contínuas que raramente seguem Distribuição Normal (Gaussiana), não testamos apenas médias, mas toda a "forma" da curva através do Teste U de Mann-Whitney. 
 
-O dataset e **extremamente desbalanceado**: apenas 1.10% das aberturas de conta sao fraudulentas. Isso justifica o uso de tecnicas como Cost-Sensitive Learning (`class_weight='balanced'`, `scale_pos_weight=90`) e metricas como ROC-AUC e Recall em vez de Acuracia.
+> *ℹ️ **Glossário Explicativo: Teste U de Mann-Whitney***
+> *Um teste estatístico não-paramétrico. Em vez de calcular qual a média da idade dos fraudadores vs legítimos, ele ranqueia todos os clientes ordenados por idade e avalia se os fraudadores consistentemente ocupam posições mais altas rankeadas de forma sistemática.*
 
-## 1.7 Testes Estatisticos (Mann-Whitney U -- Fraude vs Legitima)
+**Resultado:** 24 de 26 variáveis numéricas apresentam padrões matemáticos significativamente diferentes para o grupo de fraude (p-value < 0.05). As exclusões foram `session_length_in_minutes` e `device_fraud_count`.
 
-O teste Mann-Whitney U e um teste nao-parametrico que verifica se a distribuicao de uma variavel e estatisticamente diferente entre os dois grupos (Fraude e Legitima). Se p-value < 0.05, a diferenca e significativa.
+<details>
+<summary><b> Expandir Resultados do Teste de Hipótese (P-Values)</b></summary>
 
 | Variavel                           | Mann-Whitney Stat | P-Value   | Conclusao              |
 | ---------------------------------- | ----------------- | --------- | ---------------------- |
@@ -327,11 +243,25 @@ O teste Mann-Whitney U e um teste nao-parametrico que verifica se a distribuicao
 | `session_length_in_minutes`        | 50.570.011,0      | 1.63e-01  | Nao Significativo      |
 | `device_fraud_count`               | 50.000.000,0      | 1.00      | Nao Significativo      |
 
-**Conclusao**: 24 de 26 variaveis numericas apresentam diferenca estatisticamente significativa entre fraudes e contas legitimas. Apenas `session_length_in_minutes` e `device_fraud_count` nao apresentaram significancia (p >= 0.05).
+</details>
 
-## 1.8 Mutual Information (Importancia de Features)
+<br>
 
-O score de Mutual Information mede a dependencia estatistica entre cada feature e o target, capturando relacoes nao-lineares que a correlacao tradicional ignora. Quanto maior o score, maior o poder preditivo da variavel.
+## 1.4 Importância de Features via Mutual Information (MI)
+
+Correlação de Pearson (linear) falha miseravelmente em contextos de fraude onde os preditores são catérgicos binários ou não lineares. O Score de "Informação Mútua" (MI) é matematicamente imune a esses problemas estatísticos.
+
+> *ℹ️ **Glossário Explicativo: Mutual Information (MI)***
+> *Mede a redução da nossa "incerteza" estatística sobre a fraude ao conhecermos uma dada variável. É a quantidade de informação (em bits ou nats) que uma variável compartilha sobre a outra, podendo capturar sinergias ocultas.*
+
+**🔹 O que isso significa para o Negócio?**
+As três variáveis de mais alto poder preditivo de fraude não são "idade" ou "renda" do cliente, mas sim sua "Jornada Digital" no momento da abertura da conta. O ranking de MI nos revela um atacante que:
+1. Reitera o uso do dispositivo com e-mails massivos diferenciados (`device_distinct_emails`).
+2. Utiliza e-mails gratuitos (`email_is_free`) que são muito fáceis de serem gerados em lote por robôs.
+3. Não mantém engajamento duradouro com a sessão (`keep_alive_session`). 
+
+<details>
+<summary><b> Expandir Ranking de Mutual Information</b></summary>
 
 | Posicao | Variavel                           | MI Score |
 | ------- | ---------------------------------- | -------- |
@@ -345,122 +275,68 @@ O score de Mutual Information mede a dependencia estatistica entre cada feature 
 | 8       | `income`                           | 0.003630 |
 | 9       | `has_other_cards`                  | 0.001935 |
 | 10      | `credit_risk_score`                | 0.001892 |
-| 11      | `bank_months_count`                | 0.001779 |
-| 12      | `date_of_birth_distinct_emails_4w` | 0.001648 |
-| 13      | `name_email_similarity`            | 0.001588 |
-| 14      | `prev_address_months_count`        | 0.001465 |
-| 15      | `month`                            | 0.001373 |
-| 16      | `intended_balcon_amount`           | 0.001333 |
-| 17      | `current_address_months_count`     | 0.001302 |
-| 18      | `velocity_4w`                      | 0.001273 |
-| 19      | `velocity_6h`                      | 0.001098 |
-| 20      | `bank_branch_count_8w`             | 0.000955 |
-| 21      | `days_since_request`               | 0.000603 |
-| 22      | `velocity_24h`                     | 0.000184 |
-| 23      | `device_fraud_count`               | 0.000100 |
-| 24      | `zip_count_4w`                     | 0.000000 |
-| 25      | `session_length_in_minutes`        | 0.000000 |
-| 26      | `foreign_request`                  | 0.000000 |
+| ...      | demais contidas na matriz integral do arquivo `eda_summary` | ... |
 
-As features com maior poder preditivo sao relacionadas ao comportamento digital (`device_distinct_emails_8w`, `email_is_free`, `keep_alive_session`) e dados de contato (`phone_mobile_valid`, `phone_home_valid`), indicando que o perfil digital do solicitante e um forte indicador de fraude.
+</details>
 
-## 1.9 Analise Temporal (Taxa de Fraude por Mes)
+<br>
 
-| Mes | Taxa de Fraude |
-| --- | -------------- |
-| 0   | 1.13%          |
-| 1   | 0.94%          |
-| 2   | 0.87%          |
-| 3   | 0.92%          |
-| 4   | 1.14%          |
-| 5   | 1.18%          |
-| 6   | 1.34%          |
-| 7   | 1.47%          |
+## 1.5 Análise de Risco Categórico: Onde mora a Fraude?
 
-A taxa de fraude apresenta uma **tendencia crescente ao longo dos meses** (de 0.87% no mes 2 para 1.47% no mes 7), sugerindo um possivel aumento na atividade fraudulenta ao longo do periodo de coleta ou sazonalidade.
+Os modelos de regressão de árvore de decisão irão iterar sobre fatias dos dados (Splits de nós). A análise das frequências revelam de antemão por onde as partições iniciarão o corte das variáveis de alto impacto na triagem:
 
-## 1.10 Correlacoes com o Target (Spearman)
+- **Sistema Operacional do Fraudadador (`device_os`):** Acessos através de navegadores Desktop Windows possuíram taxa de Fraude base de **2.47%** (mais do que o dobro do padrão global da base).
+- **Emprego (`employment_status`):** Usuários classificados pela flag opaca "CC" tem incidência de **2.47%**.
+- **Moradia (`housing_status`):** Atenção crítica à tag de moradia "BA". Ela puxa estonteantes **3.75%** de volume de fraude na sub-amostra; Este é um nicho quase 3.4x mais tóxico estatisticamente do que um usuário não pertencente a esta classe.
 
-| Variavel                           | Correlacao com `fraud_bool` | Direcao                                         |
-| ---------------------------------- | --------------------------- | ----------------------------------------------- |
-| `credit_risk_score`                | +0.0602                     | Positiva (maior score = mais fraude)            |
-| `customer_age`                     | +0.0581                     | Positiva (mais velho = mais fraude)             |
-| `proposed_credit_limit`            | +0.0574                     | Positiva (limite maior = mais fraude)           |
-| `income`                           | +0.0496                     | Positiva (renda maior = mais fraude)            |
-| `current_address_months_count`     | +0.0485                     | Positiva (mais tempo no endereco = mais fraude) |
-| `device_distinct_emails_8w`        | +0.0365                     | Positiva                                        |
-| `email_is_free`                    | +0.0278                     | Positiva                                        |
-| `foreign_request`                  | +0.0169                     | Positiva                                        |
-| `month`                            | +0.0129                     | Positiva                                        |
-| `keep_alive_session`               | -0.0503                     | Negativa (sessao ativa = menos fraude)          |
-| `prev_address_months_count`        | -0.0463                     | Negativa                                        |
-| `date_of_birth_distinct_emails_4w` | -0.0456                     | Negativa                                        |
-| `name_email_similarity`            | -0.0373                     | Negativa (menor similaridade = mais fraude)     |
-| `has_other_cards`                  | -0.0352                     | Negativa                                        |
-| `phone_home_valid`                 | -0.0351                     | Negativa                                        |
-| `bank_branch_count_8w`             | -0.0322                     | Negativa                                        |
-| `device_fraud_count`               | NaN                         | Variancia zero (constante)                      |
+**🔹 O que isso significa para o Negócio?**
+Um solicitante via *Teleapp* (Aplicativo Telefonico - Fraude Base = 1.59%), que utilize Windows (Fraude= 2.47%) e seja da base Habitacional Categoria *BA* (Fraude=3.75%) deve ser sumariamente bloqueado ou submetido à triagem manual pesada de prevenção antes da emissão de cartões temporários.
 
-As correlacoes sao baixas em valor absoluto (max ~0.06), o que e esperado em problemas de fraude. Isso indica que nenhuma variavel isolada e suficiente para prever fraude, sendo necessario o uso de modelos multivariados.
+<br>
 
-## 1.11 Analise de Risco Categorico (Taxa de Fraude por Categoria)
+## 1.6 O Problema de Outliers: Escala é Essencial
 
-### 1.11.1 Risco por Tipo de Pagamento (`payment_type`)
+Em modelos não baseados em ramificação em Árvores (ex. Regressão Logística e Redes Neurais - Multilayer Perceptron), outliers extremos causam explosões nos vetores de otimização de gradiente.
 
-| Categoria | Taxa de Fraude |
-| --------- | -------------- |
-| AC        | 1.67%          |
-| AB        | 1.13%          |
-| AD        | 1.08%          |
-| AA        | 0.53%          |
-| AE        | 0.35%          |
+> *ℹ️ **Glossário Explicativo: Método IQR (Interquartile Range)***
+> *Ao invés de definir que um valor é anômalo só porque ele é maior que a média + Desvio Padrão, o método inter-quartil ordena todo o dataset, observa estritamente os usuários do "meio" (do percentil 25 ao 75) traçando uma fronteira em seu tamanho, punindo dados fora dessa redoma da "normalidade".*
 
-### 1.11.2 Risco por Status de Emprego (`employment_status`)
+Aferimos o dataset usando o limite "Boxplot" padrão de 1.5x o IQR. 
 
-| Categoria | Taxa de Fraude |
-| --------- | -------------- |
-| CC        | 2.47%          |
-| CG        | 1.55%          |
-| CA        | 1.22%          |
-| CB        | 0.69%          |
-| CD        | 0.38%          |
-| CE        | 0.23%          |
-| CF        | 0.19%          |
+**🔹 O que isso significa para o Negócio?**
+Variáveis como `proposed_credit_limit` tem um surto: **24.17%** da base é qualificada estatisticamente como Outlier. A Feature `bank_branch_count_8w` passa disso, chegando a distorções gravíssimas em 17% dos clientes. Estes limites astronômicos farão as Redes Neurais perderem o rumo (Backpropagation instability). Teremos obrigatoriamente que aplicar `MinMaxScaler` ou `RobustScaler` com percentuais *clipados (Clipping)* rigorosos no desenvolvimento das pipelines de engenharia de dados.
 
-### 1.11.3 Risco por Status de Moradia (`housing_status`)
+<details>
+<summary><b> Tabela Completa de Outliers por Features </b></summary>
 
-| Categoria | Taxa de Fraude |
-| --------- | -------------- |
-| BA        | 3.75%          |
-| BD        | 0.86%          |
-| BC        | 0.61%          |
-| BB        | 0.60%          |
-| BF        | 0.42%          |
-| BG        | 0.40%          |
-| BE        | 0.34%          |
+| Variavel                           | Outliers | % Outliers | Limite Inferior | Limite Superior |
+| ---------------------------------- | -------- | ---------- | --------------- | --------------- |
+| `proposed_credit_limit`            | 241.742  | 24.17%     | -250.00         | 950.00          |
+| `has_other_cards`                  | 222.988  | 22.30%     | 0.00            | 0.00            |
+| `intended_balcon_amount`           | 222.702  | 22.27%     | -10.43          | 14.23           |
+| `bank_branch_count_8w`             | 175.243  | 17.52%     | -35.00          | 61.00           |
+| `prev_address_months_count`        | 157.320  | 15.73%     | -20.50          | 31.50           |
+| `phone_mobile_valid`               | 110.324  | 11.03%     | 1.00            | 1.00            |
+| `days_since_request`               | 94.834   | 9.48%      | -0.02           | 0.06            |
+| `session_length_in_minutes`        | 78.789   | 7.88%      | -5.54           | 17.51           |
+| `zip_count_4w`                     | 59.871   | 5.99%      | -681.00         | 3519.00         |
+| `current_address_months_count`     | 41.001   | 4.10%      | -147.50         | 296.50          |
+| `device_distinct_emails_8w`        | 31.933   | 3.19%      | 1.00            | 1.00            |
+| `foreign_request`                  | 25.242   | 2.52%      | 0.00            | 0.00            |
 
-A categoria BA de `housing_status` apresenta taxa de fraude **3.4x maior** que a media geral (3.75% vs 1.10%), sendo o segmento de maior risco em todo o dataset.
+</details>
 
-### 1.11.4 Risco por Origem da Solicitacao (`source`)
+<br>
 
-| Categoria | Taxa de Fraude |
-| --------- | -------------- |
-| TELEAPP   | 1.59%          |
-| INTERNET  | 1.10%          |
+## 1.7 Downcasting de Memória Otimizada
 
-Solicitacoes via TELEAPP apresentam taxa de fraude 44% maior que via INTERNET.
+O uso de memória de 240MB pode não parecer grande na base bruta, mas quando um pipeline efetua One-Hot Encoding ou SMOTE (Aumento de dimensionalidade gerando fatiamento de arrays no C++ / Cython), geramos sobrecarga no kernel ou até mesmo *Memory Leaks*.
 
-### 1.11.5 Risco por Sistema Operacional (`device_os`)
+> *ℹ️ **Glossário Explicativo: Memory Downcasting***
+> *Consiste em ler e analisar as varáveis estáticas nas memórias e perceber se suas propriedades se apoiam perfeitamente num espaço alocado imensamente menor da arquitetura padrão.*
 
-| Categoria | Taxa de Fraude |
-| --------- | -------------- |
-| windows   | 2.47%          |
-| macintosh | 1.40%          |
-| x11       | 1.12%          |
-| other     | 0.58%          |
-| linux     | 0.52%          |
-
-Dispositivos com sistema operacional Windows apresentam a maior taxa de fraude (2.47%), mais que o dobro da media geral.
+A maior parte dos booleanos do projeto não requer vetores do tipo `int64` alocados, e sim `int8`. 
+O *Footprint* da base de dados será drasticamente reduzido pelos scripts em Python para que o tuning e simulações com os modelos de Árvore Random Forest ocorram lisos e otimizados pelo hardware durante a Pipeline.
 
 </details>
 
