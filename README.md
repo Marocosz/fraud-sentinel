@@ -385,7 +385,7 @@ O Fraud Sentinel adota uma **arquitetura modular orientada a pipeline**, organiz
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1. Ingestao de Dados                | `data/raw/Base.csv` -- O dataset bruto do BAF Suite (NeurIPS 2022) e o ponto de partida de todo o sistema. Contem todas as features sociodemograficas e comportamentais das aberturas de conta, com rotulagem binaria de fraude. E necessario como fonte primaria porque todo o pipeline depende de dados historicos rotulados para aprender padroes.                                                                                                                    | `make_dataset.py`                                                                                                                       | Carrega o CSV bruto, aplica downcasting de tipos numericos (float64 para float32, int64 para int8) para reduzir consumo de RAM, valida a existencia da coluna target (`fraud_bool`), e executa a divisao estratificada 80/20 que garante matematicamente que a proporcao de fraudes (~1%) seja identica nos conjuntos de treino e teste.                                                          | `data/processed/X_train.csv`, `X_test.csv`, `y_train.csv`, `y_test.csv` -- Quatro arquivos CSV limpos e otimizados. Sao separados em features (X) e target (y) porque o scikit-learn exige essa separacao. O split estratificado e salvo em disco para que todas as etapas subsequentes trabalhem sobre exatamente os mesmos dados, garantindo reprodutibilidade.                                                                                                                                                 |
 | 2. Analise Exploratoria             | `data/raw/Base.csv` -- O dataset bruto original e carregado novamente (nao os processados) porque a EDA precisa analisar os dados no estado natural, sem transformacoes de escala ou encoding, para identificar problemas reais como nulos, outliers e distribuicoes originais.                                                                                                                                                                                          | `generate_eda_report.py`                                                                                                                | Executa um raio-X completo dos dados: calcula estatisticas descritivas, quantifica outliers (IQR), roda testes de hipotese (Mann-Whitney U) para validar significancia estatistica de cada feature, calcula Mutual Information para ranquear importancia, gera boxplots comparativos, heatmaps de correlacao (Spearman), analises de risco categorico, e um dashboard HTML interativo (Sweetviz). | `reports/data/*.csv` (7 tabelas de metricas), `reports/figures/eda/*.png` (7+ graficos), `reports/eda_summary.txt` (relatorio textual consolidado), `reports/sweetviz_report.html` (dashboard interativo) -- Esses artefatos servem para o cientista de dados tomar decisoes informadas sobre quais features usar, quais tratamentos aplicar, e validar cientificamente que os dados possuem sinal discriminativo para fraude.                                                                                    |
-| 3. Benchmark de Modelos (Opcional)  | `data/processed/X_train.csv`, `y_train.csv` -- Os dados de treino processados sao necessarios porque o benchmark precisa avaliar algoritmos sobre dados comparaveis. Uma amostra estratificada de 50k linhas e extraida para viabilizar a execucao em tempo razoavel sem perder representatividade estatistica.                                                                                                                                                          | `compare_models.py`                                                                                                                     | Executa um torneio entre 8 a 10 algoritmos (LogReg, DecisionTree, RandomForest, GradientBoosting, HistGradientBoosting, ExtraTrees, AdaBoost, XGBoost, e opcionalmente LightGBM e CatBoost) usando validacao cruzada estratificada de 5 folds. O SMOTE e aplicado dentro de cada fold via ImbPipeline para prevenir data leakage. Mede ROC-AUC, Recall, Precision e F1.                           | `reports/data/models_comparison_results.csv` (tabela com medias e desvios de todas as metricas), `reports/model_comparison_report.txt` (relatorio executivo com ranking), `reports/figures/model_comparison_metrics.png` (grafico de barras comparativo) -- Esses artefatos permitem escolher objetivamente qual algoritmo tem melhor potencial antes de investir tempo na otimizacao de hiperparametros.                                                                                                         |
+| 3. Benchmark de Modelos (Opcional)  | `data/processed/X_train.csv`, `y_train.csv` -- Os dados de treino processados sao necessarios porque o benchmark precisa avaliar algoritmos sobre dados comparaveis. Uma amostra estratificada de 50k linhas e extraida para viabilizar a execucao em tempo razoavel sem perder representatividade estatistica.                                                                                                                                                          | `compare_models.py`                                                                                                                     | Executa um torneio entre multiplos algoritmos (LogReg, DecisionTree, RandomForest, GradientBoosting, XGBoost, e opcionalmente LightGBM e CatBoost) usando validacao cruzada estratificada. Tecnicas de Cost-Sensitive Learning sao aplicadas para lidar com desbalanceamento. Mede ROC-AUC, Recall, Precision e F1.                           | `reports/data/models_comparison_results.csv` (tabela com medias e desvios de todas as metricas), `reports/model_comparison_report.txt` (relatorio executivo com ranking), `reports/figures/model_comparison_metrics.png` (grafico de barras comparativo) -- Esses artefatos permitem escolher objetivamente qual algoritmo tem melhor potencial antes de investir tempo na otimizacao de hiperparametros.                                                                                                         |
 | 4. Treinamento e Otimizacao         | `data/processed/X_train.csv`, `y_train.csv` -- Os dados de treino sao necessarios para o modelo aprender os padroes de fraude. Cada script de modelo os carrega para construir o pipeline completo (preprocessamento + classificador) e otimizar hiperparametros via busca exaustiva.                                                                                                                                                                                    | `reg_log_model.py`, `decision_tree_model.py`, `random_forest_model.py`, `xgboost_model.py`, `mlp_model.py`, `isolation_forest_model.py` | Cada script cria um pipeline (preprocessor + modelo), executa GridSearchCV com Stratified K-Fold (3 folds) para encontrar os melhores hiperparametros, retreina o modelo vencedor no dataset completo (quando aplicavel), e executa Threshold Tuning que varre a curva Precision-Recall para encontrar o limiar de decisao que maximiza o F1-Score.                                               | `models/{nome}_best_model.pkl` (modelo serializado pronto para producao), `models/model_{nome}_{timestamp}.pkl` (copia versionada para historico), `models/{nome}_threshold.txt` (threshold otimizado), `models/{nome}_best_model_params.txt` (hiperparametros vencedores), `reports/experiments_log.json` (registro do experimento) -- Cada artefato cumpre um papel: o PKL e o modelo reutilizavel, o threshold define o ponto de operacao, e o JSON garante rastreabilidade completa de todos os experimentos. |
 | 5. Avaliacao Final                  | `data/processed/X_test.csv`, `y_test.csv` (dados que o modelo nunca viu) e `models/{nome}_best_model.pkl` (modelo treinado) -- O blind test set e essencial porque simula dados reais de producao. Usar dados de treino para avaliar geraria metricas artificialmente infladas (overfitting). O modelo e carregado serializado para simular exatamente o que aconteceria em producao.                                                                                    | `visualize.py`                                                                                                                          | Carrega o modelo treinado e os dados de teste, gera predicoes de classe e probabilidade, calcula metricas finais (ROC-AUC, Precision, Recall, F1), plota a Matriz de Confusao (visualiza falsos positivos e negativos), a Curva ROC (capacidade de discriminacao) e o grafico de importancia de features (explicabilidade). Atualiza o log de experimentos com as metricas reais.                 | `reports/figures/confusion_matrix_{nome}.png`, `reports/figures/roc_curve_{nome}.png`, `reports/figures/feature_importance_coefficients.png` (se modelo linear) -- Graficos essenciais para validar se o modelo esta pronto para producao e comunicar resultados para stakeholders. O `experiments_log.json` e atualizado com metricas reais de teste, fechando o ciclo de rastreabilidade.                                                                                                                       |
 | 6. Simulacao de Producao (Opcional) | Modelos balanceados `models/trainers/*_best_model.pkl` de 3 arquiteturas diferentes (XGBoost, LightGBM, MLP) + limiares otimizados + Conjunto Real `data/processed/X_test.csv` -- O Simulador simula o ambiente Real-Time de banco: a cada milissegundo as features batem no comitê de inferência e a decisão majoritária é tomada. O gabarito (y_test) e usado apenas para mostrar se o comitê acertou e quantificar retorno e atrito financeiro gerado para o cliente. | `predict_ensemble.py`, `simulate_production.py`                                                                                         | Recebe as transações como streaming de micro-serviço e orquestra a Ingestão no Comitê de 3 modelos de ML. Se `Fraud_Votes >= 2`: BLOQUEIO. Se `Fraud_Votes == 1` mas o votante for o _Champion de Negocio_ (LightGBM): CAI PARA REVISÃO MANUAL devido ao altíssimo risco estatístico. Qualquer outra coisa é aprovada para não gerar atrito.                                                      | Saida Dashboard Console interativa com emoji para rastreio transacional unitário da tomada de decisão dos modelos. Finaliza salvando na persistência física o artefato executivo `reports/simulation_summary.txt`, que resume todas as TN, TP, Falsos positivos/negativos e traduz o lucro evitado em $$ vs atrito operacional da operação global.                                                                                                                                                                |
@@ -432,6 +432,7 @@ fraud-sentinel/
 |   |   |-- force_precision.py     # Ajuste fino de threshold por Precision-alvo
 |   |   |-- threshold_utils.py     # Utilitarios anti-leakage para Thresholds
 |   |   |-- trainers/              # Submodulo de Algoritmos Otimizados
+|   |       |-- base_trainer.py        # Classe Abstrata (Orquestracao IO e Otimizacao)
 |   |       |-- reg_log_model.py       # Treinamento Logistic Regression
 |   |       |-- decision_tree_model.py # Treinamento Decision Tree
 |   |       |-- random_forest_model.py # Treinamento Random Forest
@@ -439,6 +440,7 @@ fraud-sentinel/
 |   |       |-- mlp_model.py           # Treinamento MLP (Rede Neural)
 |   |       |-- isolation_forest_model.py # Treinamento Isolation Forest
 |   |       |-- lightgbm_model.py      # Treinamento LightGBM (Campeao de Precisao)
+|   |       |-- stacking_model.py      # Treinamento de Stacking Ensemble
 |   |
 |   |-- serving/
 |   |   |-- __init__.py
@@ -453,9 +455,11 @@ fraud-sentinel/
 |   |-- model_comparison_report.txt # Relatorio do benchmark
 |   |-- experiments_log.json   # Historico unificado de todos os experimentos
 |   |-- sweetviz_report.html   # Dashboard interativo HTML
-|   |-- simulation_summary.txt # Relatorio executivo financeiro (ROI) do Emsemble
+|   |-- simulation_summary.txt # Relatorio executivo financeiro (ROI) do Ensemble
 |
-|-- tests/                     # Stubs de testes (nao implementados)
+|-- tests/                     # Suite de testes unitarios funcionais (Data e Features)
+|   |-- test_data.py           # Testes automatizados do build features
+|   |-- test_features.py       # Testes da preparacao otimizada
 |
 |-- venvmine/                  # Ambiente virtual Python (nao versionado)
 ```
@@ -615,7 +619,7 @@ A classe `IForestWrapper` inverte o score de anomalia (`-decision_function`), no
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Funcao principal** | `compare_algorithms()`                                                                                                                              |
 | **Competidores**     | LogReg, DecisionTree, RandomForest, GradientBoosting, HistGradientBoosting, ExtraTrees, AdaBoost, XGBoost, LightGBM (opcional), CatBoost (opcional) |
-| **Metodologia**      | Stratified 5-Fold CV com pipeline SMOTE _dentro_ de cada fold                                                                                       |
+| **Metodologia**      | Stratified 5-Fold CV com pipeline focado em Cost-Sensitive Learning (sem SMOTE)                                                                                     |
 | **Metricas**         | ROC-AUC, Recall, Precision, F1-Score                                                                                                                |
 | **Saidas**           | `models_comparison_results.csv`, `model_comparison_report.txt`, `model_comparison_metrics.png`                                                      |
 
@@ -683,7 +687,7 @@ A classe `IForestWrapper` inverte o score de anomalia (`-decision_function`), no
 [compare_algorithms] (se --compare-models ativo)
     Le data/processed/X_train.csv, y_train.csv
     Amostra 50k linhas estratificadas
-    Roda 5-Fold CV com SMOTE para 8-10 algoritmos
+    Roda 5-Fold CV para algoritmos usando Cost-Sensitive Learning
     Gera ranking e graficos
     |
     v
@@ -719,23 +723,17 @@ A classe `IForestWrapper` inverte o score de anomalia (`-decision_function`), no
 
 ```
 train_*():
+    [BaseTrainer - Classe Abstrata Orquestradora]
     1. run_id = timestamp atual
-    2. X_train = pd.read_csv("data/processed/X_train.csv")
-    3. y_train = pd.read_csv("data/processed/y_train.csv").ravel()
-    4. preprocessor = get_preprocessor(X_train)  # Detecta tipos, monta pipelines
-    5. clf = ModelClass(**params)
-    6. pipeline = Pipeline([preprocessor, clf])
-    7. [Opcional: Amostra 100k para GridSearch]
-    8. GridSearchCV(pipeline, param_grid, scoring='roc_auc', cv=3)
-    9. grid_search.fit(X_sample, y_sample)
-   10. final_model = grid_search.best_estimator_
-   11. final_model.fit(X_train, y_train)  # Retreino no completo
-   12. joblib.dump(final_model, "*_best_model.pkl")
-   13. joblib.dump(final_model, "model_*_{run_id}.pkl")  # Versionado
-   14. y_proba = final_model.predict_proba(X_train)[:,1]
-   15. precision_recall_curve --> argmax(F1) --> best_threshold
-   16. Salva threshold.txt, params.txt
-   17. Appenda experiment em experiments_log.json
+    2. _load_data(): Carrega X_train e y_train do PKL e ravel().
+    3. pipeline = build_pipeline(X_train, clf)
+    4. _get_sample(): Amostragem rigorosa (`stratify=y`) para Busca Rápida de Hiperparâmetros.
+    5. compute_sample_weight(): Aplica balanceamento de Pesos Cost-Sensitive para suprir Desbalanceamento.
+    6. GridSearchCV / RandomizedSearchCV configurado conforme `config.py` injetado pelo modelo.
+    7. Retreina melhor estimador em Dataset Completo.
+    8. threshold_utils.compute_optimal_threshold() -> argmax(F1).
+    9. joblib.dump do Modelo Campeão e Versionado `model_*_{run_id}.pkl`.
+   10. Appenda log de métricas da validação cruzada no `experiments_log.json`.
 ```
 
 ## 4.3 Fluxo de Inferencia (Predicao com Ensemble)
@@ -746,10 +744,10 @@ simulate_production() -> predict_ensemble() :
     2. X_test, y_test são carregados e embaralhados.
     3. Para cada transacao fornecida em streaming:
        a. Calcula proba para os 3 modelos e computa contra os seus 3 thresholds otimizados.
-       b. Majority Vote Logic:
-          - Se Fraud_Votes >= Majority_Threshold: BLOQUEIO
-          - Se Fraud_Votes == 1 AND Votante == 'LightGBM': REVISÃO MANUAL
-          - Senao: APROVADO
+       b. Majority Vote Logic (Smart Ensemble c/ Veto Especial):
+          - Se Fraud_Votes >= Majority_Threshold (ex: 2/3): BLOQUEIO (Alta Confiança)
+          - Se Fraud_Votes > 0 E Votante Unico == 'LightGBM': REVISÃO MANUAL (Veto de Precisão)
+          - Senao: APROVADO (Nivel de Risco Assumido)
     4. Atualiza os TPs, FPs, TNs e FNs em Real Time.
     5. Imprime resultado consolidado visual Terminal CLI.
     6. Quando finalizado, computa ROI e Atrito -> reports/simulation_summary.txt
@@ -806,7 +804,7 @@ A estrategia de "banco de dados" e baseada em **flat files**, onde cada execucao
 
 - Split estratificado obrigatorio (`stratify=y`) para manter proporcao de fraude
 - Preprocessamento ocorre **dentro** do pipeline para evitar Data Leakage
-- SMOTE (quando usado) e aplicado **dentro** de cada fold de validacao cruzada
+- Algoritmos dependem de balanceador semântico estatístico e pesos (`class_weight`, `scale_pos_weight`) aplicados a nível de CV Fold.
 - GridSearch avalia por `roc_auc` (metrica independente de threshold)
 
 ## 6.4 Regras de Versionamento de Modelos
@@ -818,9 +816,9 @@ A estrategia de "banco de dados" e baseada em **flat files**, onde cada execucao
 ## 6.5 Regras de Motor de Decisao
 
 ```
-Se score > threshold:             --> BLOQUEIO AUTOMATICO (Alto Risco)
-Se score > threshold * 0.8:       --> REVISAO MANUAL (Medio Risco)
-Se score <= threshold * 0.8:      --> APROVADO (Baixo Risco)
+Se (Votos de Fraude do Comitê) >= Maioria (2+ de 3): --> BLOQUEIO AUTOMATICO (Alto Risco)
+Se (Votos = 1) E (Voto de Fraude originado pelo LightGBM): --> REVISAO MANUAL (Médio/Alto Risco - Veto de Campeão)
+Outros Casos (Voto 0 ou voto único de modelo fraco):  --> APROVADO (Baixo Risco Aceitável)
 ```
 
 ---
@@ -835,8 +833,7 @@ O projeto **nao possui integracoes com APIs externas** em tempo de execucao. Tod
 | -------------------- | --------------- | ------------------------------------------- |
 | scikit-learn         | 1.8.0           | Pipelines, modelos, metricas, preprocessing |
 | xgboost              | 3.2.0           | Gradient Boosting otimizado                 |
-| imbalanced-learn     | 0.14.1          | SMOTE e ImbPipeline                         |
-| lightgbm             | 4.6.0           | Gradient Boosting (benchmark)               |
+| lightgbm             | 4.6.0           | Gradient Boosting (benchmark e Ensemble)    |
 | pandas               | 2.3.3           | Manipulacao de dados tabulares              |
 | numpy                | 2.3.5           | Operacoes numericas                         |
 | matplotlib / seaborn | 3.10.0 / 0.13.2 | Visualizacoes                               |
@@ -907,6 +904,16 @@ Dados Engenheirados (38 features)
 ```
 
 O transformer implementa `fit()` para aprender limites de clipping no conjunto de treino e `transform()` para aplicar todas as transformacoes. Por ser um `BaseEstimator`, e automaticamente serializado junto com o modelo.
+
+## 8.7 Abstração de Treinamento (`BaseTrainer`)
+
+Refatora o problema de duplicação que existia na versão primária, gerando Orientação a Objetos. A classe orquestra subamostragem `_get_sample()` rigorosa estratificada, injeção de dependências de modelos arbitrária, resolve união entre `GridSearchCV` e `RandomizedSearchCV`, define pesos usando `compute_sample_weight` e automatiza a trilha de Logs (`experiments_log.json`).
+
+## 8.8 Motor de Simulação (Ensemble PoV & ROI)
+
+Implementado com vetores `pandas` de altíssima velocidade, prevê dados em "Batch Array" diretamente pelos 3 Modelos Comitê otimizados simultaneamente (MLP, Xgb, LightGBM). Utiliza CLI (Command Line Interface) Visual para reportar:
+- O Veredito de Maioria Simples ou Veto Especial, traduzidos em True Positives e False Negatives.
+- Uma Inteligência de Negócio Financeira (`simulate_production.py`) cruza os erros contra um Ticket Médio de negócio predefinido e entrega ao usuário e Stakeholders um Documento final (`simulation_summary.txt`) contendo Patrimônio Salvo, Custo de Atrito, Taxa da Operação e o Lucro Resgatado em Dinheiro Requerido.
 
 ---
 
@@ -1000,81 +1007,25 @@ Cada treinamento appenda um registro contendo:
 
 # 14. Melhorias Futuras
 
-## 14.1 Sugestoes Estruturais
+## 14.1 Melhorias de Performance
 
-1. **Criar classe base abstrata `BaseModelTrainer`** para eliminar duplicacao entre os 6 arquivos de modelo
-2. **Implementar testes unitarios** (arquivos em `tests/` estao vazios)
-3. **Separar validation set** do train set para threshold tuning mais robusto
-4. **Adicionar type hints** e docstrings padrao (Google style ou NumPy style)
+1. **Substituir GridSearchCV por Optuna/BayesSearchCV** para busca ainda mais robusta de hiperparametros em hipercubos densos.
+2. **Implementar cache de preprocessamento avançado** para evitar recomputacao entre diferentes partições no motor de CV do `BaseTrainer`.
+3. **Usar Parquet em vez de Pickle** caso ocorra imprecisão massiva e gargalo nas escritas do disco por datasets multibilionários.
 
-## 14.2 Melhorias de Performance
+## 14.2 Refatoracoes Recomendadas
 
-1. **Substituir GridSearchCV por Optuna/BayesSearchCV** para busca mais eficiente de hiperparametros
-2. **Implementar cache de preprocessamento** para evitar recomputacao em cada modelo
-3. **Usar Parquet em vez de CSV** para leitura 5-10x mais rapida
-
-## 14.3 Refatoracoes Recomendadas
-
-1. **Extrair logica de persistencia de experimentos** para um modulo `experiment_tracker.py`
-2. **Centralizar configuracao de modelos** em um unico YAML/JSON em vez de dicionarios por arquivo
-3. **Implementar SHAP/LIME** para explicabilidade (placeholder existe em `simulate_production.py`)
+1. **Extrair logica de persistencia de experimentos** para um container online (`MLflow` tracking).
+2. **Centralizar configuracao de modelos** em um unico YAML/JSON para integração direta a pipelines de Deploy CI/CD em Nuvem (Airflow, KubeFlow).
+3. **Implementar Explainable AI (SHAP/LIME)** diretamente conectada na resposta do Comitê de Decisão (`predict_ensemble.py`) informando qual feature barrou ou aprovou o risco.
 
 ---
 
-# 15. Limitações Conhecidas e Trabalhos Futuros
+# 15. Trabalhos Recentes Refatorados (Changelog Histórico)
 
-## 15.1 Codigo Duplicado (Alto Impacto)
+O projeto sofria de graves limitações como *Código Duplicado de Alto Impacto* nos scripts da pasta Modelos, variáveis ociosas nos `dict` originais, importações duplas, ausência de Suíte de Testes (TDD) e dependência engessada a rotinas arcaicas e ineficientes de re-sampling como SMOTE (revertido para *Cost-Sensitive Learning*).
 
-Os 6 arquivos de modelo (`reg_log_model.py`, `random_forest_model.py`, `xgboost_model.py`, `decision_tree_model.py`, `mlp_model.py`, `isolation_forest_model.py`) compartilham **~80% do codigo identico**:
-
-- Carga de dados (identica em todos)
-- Chamada a `get_preprocessor()` (identica)
-- Montagem do pipeline (identica, exceto modelo)
-- Criacao do GridSearchCV (identica, exceto param_grid)
-- Persistencia de modelo (identica, exceto nome)
-- Threshold Tuning (identico)
-- Registro em `experiments_log.json` (identico)
-
-**Recomendacao**: Criar uma classe base `BaseTrainer` com metodo `train()` generico, onde subclasses definem apenas `MODEL_CONFIG`.
-
-## 15.2 Chave Duplicada no Dicionario
-
-Em `decision_tree_model.py`, linha 42-43, a chave `"model_class"` e definida duas vezes no `MODEL_CONFIG`:
-
-```python
-MODEL_CONFIG = {
-    "model_class": DecisionTreeClassifier,
-    "model_class": DecisionTreeClassifier,  # DUPLICADA
-    ...
-}
-```
-
-Nao causa erro funcional (Python usa a ultima), mas indica copy-paste descuidado.
-
-## 15.3 Variavel Nao Utilizada
-
-Em `decision_tree_model.py`, linha 106, a variavel `year_now` e atribuida mas nunca utilizada:
-
-```python
-year_now = datetime.datetime.now().year  # Nao usado em nenhum lugar
-```
-
-## 15.4 Import Duplicado
-
-Em `reg_log_model.py`, `precision_recall_curve` e importado duas vezes: no topo (linha 14) e dentro da funcao (linha 234).
-
-## 15.5 Testes Nao Implementados
-
-Os arquivos `tests/test_data.py` e `tests/test_features.py` contem apenas comentarios, sem nenhum teste real. Isso representa um risco significativo para manutencao.
-
-## 15.6 Inconsistencia na Estrategia de Amostragem para GridSearch
-
-- LogReg e XGBoost usam amostra de 100k linhas para GridSearch + retreino no completo
-- Random Forest, Decision Tree e MLP usam o dataset completo direto no GridSearch
-- Essa inconsistencia pode resultar em tempos de treinamento drasticamente diferentes
-
-## 15.7 Acoplamento com Sistema de Arquivos
-
-Todos os modulos dependem diretamente de caminhos de arquivo para comunicacao. Nao ha abstracoes de I/O, tornando dificil adaptar para outros meios de armazenamento (S3, banco de dados, etc.).
-
----
+Todas as restrições foram abordadas e neutralizadas nas Sprints recentes pelas implementações de:
+- **`BaseTrainer.py`** como classe mestra de Treino que absorve 80% do Boilerplate e engessa o Pipeline End-to-End num túnel só de código.
+- Escavação de Testes de Unidade através do Framework `pytest` nativo localizados na pasta `tests/` avaliando exatidão da Pipeline de Dados e Feature Engineering.
+- Refatoração total para Batch Vectorization nos simuladores preditivos, derrubando o inferência de horas para segundos na simulação macro.
