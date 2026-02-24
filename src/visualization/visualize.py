@@ -115,15 +115,12 @@ def plot_coefficients(model, feature_names, model_name="model"):
 
 def evaluate(model_name="logreg"):
     """
-    Funcao principal de avaliacao com threshold otimizado.
+    Funcao de Exame e Extracao Grafica e Métrica do Modelo Candidato (Report de Aceitação).
     
-    FLUXO:
-    1. Carrega dados de Teste (Blind Set).
-    2. Carrega modelo treinado + threshold otimizado.
-    3. Gera predicoes com AMBOS os thresholds (0.5 e otimizado).
-    4. Imprime relatorio comparativo.
-    5. Gera graficos: Confusao, ROC, Precision-Recall, Features.
-    6. Persiste metricas no log de experimentos.
+    - O que ela faz: Roda os Pipelines num conjunto Cego. Tabula e avalia predições do Ponto Ótimo de Corte ('Threshold' Cost-Sensitive). 
+      Emite Relatórios de Classification (F1, Sensibilidade). Salva o cruzamento em Matriz e Imagens ROC/PRC em formato PNG pra Dashboarding.
+    - Quando é ativada: Sempre subsequente à Compilação/Treino de um modelo em Orquestradores Principais.
+    - Benefício/Comunicação: Empilha os JSONLs garantindo métricas para rastreabilidade, alimentando Frontends.
     """
     print(f"\n📊 AVALIANDO MODELO FINAL: {model_name.upper()}")
     
@@ -131,8 +128,8 @@ def evaluate(model_name="logreg"):
     # 1. CARGA DE ARTEFATOS
     # --------------------------------------------------------------------------
     try:
-        X_test = pd.read_csv(PROCESSED_DATA_DIR / "X_test.csv")
-        y_test = pd.read_csv(PROCESSED_DATA_DIR / "y_test.csv").values.ravel()
+        X_test = pd.read_pickle(PROCESSED_DATA_DIR / "X_test.pkl")
+        y_test = pd.read_pickle(PROCESSED_DATA_DIR / "y_test.pkl").values.ravel()
         
         model_path = MODELS_DIR / f"{model_name}_best_model.pkl"
         model = joblib.load(model_path)
@@ -221,19 +218,32 @@ def evaluate(model_name="logreg"):
         "confusion_matrix": confusion_matrix(y_test, y_pred_optimal).tolist()
     }
     
-    experiments_log_path = REPORTS_DIR / "experiments_log.json"
+    experiments_log_path = REPORTS_DIR / "experiments_log.jsonl"
     
     if experiments_log_path.exists():
         try:
-            with open(experiments_log_path, "r") as f:
-                history = json.load(f)
+            history = []
+            with open(experiments_log_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        history.append(json.loads(line))
                 
             if history:
-                last_experiment = history[-1]
-                last_experiment.update(metrics_data)
+                # Procure pelo ultimo experimento pertencente a este modelo
+                target_exp = None
+                for exp in reversed(history):
+                    if exp.get("model_type") == model_name:
+                        target_exp = exp
+                        break
                 
-                with open(experiments_log_path, "w") as f:
-                    json.dump(history, f, indent=4)
+                if target_exp:
+                    target_exp.update(metrics_data)
+                else:
+                    history[-1].update(metrics_data) # Fallback
+                
+                with open(experiments_log_path, "w", encoding="utf-8") as f:
+                    for exp in history:
+                        f.write(json.dumps(exp) + "\n")
                 print(f"📝 Metricas adicionadas ao log: {experiments_log_path}")
             else:
                 print("⚠️ Log de experimentos vazio.")

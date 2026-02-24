@@ -2,7 +2,10 @@ import numpy as np
 import json
 import datetime
 import logging
+import pandas as pd
 from pathlib import Path
+from typing import Tuple, Dict, Any, Optional
+from sklearn.base import BaseEstimator
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import precision_recall_curve, f1_score, roc_auc_score
 
@@ -46,49 +49,25 @@ logger = logging.getLogger(__name__)
 
 
 def compute_optimal_threshold(
-    model, 
-    X_train, 
-    y_train, 
-    validation_fraction=0.2, 
-    random_state=42,
-    beta=1.0,
-    model_name="model",
-    skip_final_refit=False,
-    fit_params=None
-):
+    model: BaseEstimator, 
+    X_train: pd.DataFrame, 
+    y_train: np.ndarray, 
+    validation_fraction: float = 0.2, 
+    random_state: int = 42,
+    beta: float = 1.0,
+    model_name: str = "model",
+    skip_final_refit: bool = False,
+    fit_params: Optional[Dict[str, Any]] = None
+) -> Tuple[float, float, BaseEstimator]:
     """
-    Calcula o threshold otimo usando um hold-out de validacao separado.
+    Sub-rotina científica de Sintonia do Threshold (Limiar de Separação).
     
-    CORRECAO CRITICA:
-    Versao anterior calculava threshold usando predict_proba(X_train), ou seja,
-    no mesmo dado usado para treinar. Isso produz thresholds otimistas que nao
-    generalizam. Esta versao usa um hold-out interno para estimar o threshold
-    de forma honesta.
-    
-    ESTRATEGIA:
-    1. Separa 20% do X_train como validacao (estratificado).
-    2. Retreina o modelo nos 80% restantes.
-    3. Calcula pred_proba no hold-out e otimiza threshold.
-    4. (Opcional) Retreina no dataset COMPLETO para producao.
-    
-    Args:
-        model: Pipeline/modelo treinado (com .fit() e .predict_proba()).
-        X_train: DataFrame de treino completo.
-        y_train: Array de labels completo.
-        validation_fraction: Fracao do treino para validacao (default: 0.2).
-        random_state: Seed para reproducibilidade.
-        beta: Peso do Recall no F-beta score. 
-              beta=1 -> F1 (equilibrio Precision/Recall).
-              beta=2 -> F2 (Recall 2x mais importante que Precision).
-        model_name: Nome do modelo (para logging).
-        skip_final_refit: Se True, NAO refita o modelo no dataset completo.
-              Use quando o caller ja fez fit no dataset completo antes de chamar
-              esta funcao, para evitar fits redundantes e poupar tempo.
-        fit_params: Dicionario com parametros extras para o fit() (ex: sample_weight
-              para MLP que nao suporta class_weight).
-    
-    Returns:
-        tuple: (best_threshold, best_fbeta, model)
+    - O que ela faz: Extingue o hardcode 50% de probabilidade. Ao invés, reserva uma fatia não viciada
+      (Hold-out de CV), calcula a curva Precicão-Recall e rastreia o ponto exato onde a fraude 
+      não sofre de muitos alarmes falsos, mas também não deixa passar bandidos demais (F1/F-Beta Score máximo).
+    - Por que existe: O data leakage (avaliar limiar na predição de quem já foi treinado) é o erro n1 de MLOps de Fraude, 
+      fazendo o F1 bater '0.99' em Dev e '0.05' em Prd. Esse script foi o refatoramento crítico que extinguiu o leak.
+    - Quando invocada: Dentro do BaseTrainer de Treinamento após o GridSearchCV achar o melhor tunning.
     """
     logger.info(f"⚖️  [{model_name.upper()}] Calculando Threshold Otimo (hold-out de validacao)...")
     logger.info(f"   Estrategia: {int((1-validation_fraction)*100)}% treino / {int(validation_fraction*100)}% validacao | F-beta (beta={beta})")
@@ -170,7 +149,7 @@ def compute_optimal_threshold(
     return best_threshold, best_fbeta, model
 
 
-def save_threshold(threshold, model_prefix, models_dir):
+def save_threshold(threshold: float, model_prefix: str, models_dir: Path) -> Path:
     """
     Salva o threshold otimizado em arquivo texto.
     
@@ -186,7 +165,7 @@ def save_threshold(threshold, model_prefix, models_dir):
     return threshold_path
 
 
-def load_threshold(model_prefix, models_dir, default=0.5):
+def load_threshold(model_prefix: str, models_dir: Path, default: float = 0.5) -> float:
     """
     Carrega o threshold otimizado de um arquivo.
     Retorna o default (0.5) se o arquivo nao existir.
@@ -213,16 +192,16 @@ def load_threshold(model_prefix, models_dir, default=0.5):
 
 
 def log_experiment(
-    run_id,
-    model_type,
-    best_params,
-    best_cv_score,
-    best_threshold,
-    model_path,
-    reports_dir,
-    smote_strategy=None,
-    extra_data=None
-):
+    run_id: str,
+    model_type: str,
+    best_params: Dict[str, Any],
+    best_cv_score: float,
+    best_threshold: float,
+    model_path: str | Path,
+    reports_dir: Path,
+    smote_strategy: Optional[str] = None,
+    extra_data: Optional[Dict[str, Any]] = None
+) -> Path:
     """
     Registra um experimento no log centralizado (experiments_log.json).
     
@@ -254,21 +233,10 @@ def log_experiment(
     if extra_data:
         experiment_data.update(extra_data)
     
-    experiments_log_path = reports_dir / "experiments_log.json"
+    experiments_log_path = reports_dir / "experiments_log.jsonl"
     
-    if experiments_log_path.exists():
-        with open(experiments_log_path, "r") as f:
-            try:
-                history = json.load(f)
-            except json.JSONDecodeError:
-                history = []
-    else:
-        history = []
-    
-    history.append(experiment_data)
-    
-    with open(experiments_log_path, "w") as f:
-        json.dump(history, f, indent=4)
+    with open(experiments_log_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(experiment_data) + "\n")
     
     logger.info(f"📝 Experimento registrado em: {experiments_log_path}")
     return experiments_log_path

@@ -64,8 +64,12 @@ except ImportError:
 
 def reset_project_artifacts():
     """
-    Remove todos os artefatos gerados (processados, modelos e relatorios)
-    para garantir uma execucao limpa e reprodutivel.
+    Higienizadora e Resetadora de Ambiente ML.
+    
+    - O que ela faz: Remove todos os artefatos gerados (processados, modelos e relatorios) preventivamente.
+    - Por que ela existe: Garantir uma execucao limpa e totalmente reprodutivel, essencial para pipelines MLOps, sem o 
+      risco de modelos beberem de caches temporais velhas de features não-validadas.
+    - Quando é chamada: No incio da compilação mestre. Pode ser debelada através do Argumento `--no-reset`.
     """
     print("\n🧹 [MAESTRO] Iniciando limpeza de artefatos antigos...")
     
@@ -93,8 +97,11 @@ def reset_project_artifacts():
 
 def main():
     """
-    Funcao Principal (O Maestro).
-    Orquestra a execucao de todo o pipeline de dados na ordem logica.
+    Funcao Principal (O Maestro do Pipeline de Operações).
+    
+    - O que ela faz: Orquestra a execucao seqüencial e cronológica de todo o workflow (Pipeline ETL -> EDA -> Fit -> Tune).
+    - Regras embutidas: Recebe e mapeia os args CLI (`--models`, `--skip-eda`) acionando ramificações de IFs seletivos.
+      Ao invés de processar o ML no mesmo script, ela apenas delega o gatilho para os módulos responsáveis.
     """
     parser = argparse.ArgumentParser(description="🛡️ Fraud Sentinel - Maestro (Pipeline Orchestrator)")
     

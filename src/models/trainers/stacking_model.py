@@ -73,16 +73,16 @@ def train_stacking():
     """
     Constroi e treina o Stacking Ensemble a partir dos modelos base pre-treinados.
     
-    ESTRATEGIA:
-    ----------------------
-    1. Carrega os modelos base (XGBoost, LightGBM, Random Forest).
-    2. Extrai o classificador final de cada pipeline.
-    3. Constroi um novo pipeline: EDAFeatureEngineer -> Preprocessor -> Stacking.
-    4. O StackingClassifier usa cross-validation interna (cv=5) para gerar
-       predicoes out-of-fold dos base learners, que alimentam o meta-learner.
-    5. Threshold otimizado em hold-out de validacao.
-    
-    NOTA: Se LightGBM nao estiver disponivel, usa apenas XGBoost + RF.
+    - O que ela faz: Em cápsula, constrói um "Meta-Classificador". Ela instítui a extração completa 
+      de pipelines (K-Fold cruzado) evitando leakages. Por fim treina uma regressão sobre as saídas.
+    - Quando é chamada: Pelo main.py após todos os algoritmos primários terem finalizado com sucesso.
+    - Por que ela existe: Diferente do Voting, o Stacking *aprende* dinamicamente como somar os votos dependendo das nuances.
+    - Como age (Passo a passo):
+      1. Extrai o classificador final de cada pipeline gravado na sessão.
+      2. Constroi um novo pipeline: EDAFeatureEngineer -> Preprocessor -> Stacking.
+      3. O StackingClassifier usa cross-validation interna (cv=5) para gerar
+         predicoes out-of-fold dos base learners, que alimentam o meta-learner.
+      4. Threshold otimizado em hold-out de validacao.
     """
     run_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     logger.info(f"🚀 Iniciando Pipeline Stacking Ensemble (Run ID: {run_id})...")
@@ -90,16 +90,16 @@ def train_stacking():
     # -------------------------------------------------------------------------
     # 1. CARGA DE DADOS
     # -------------------------------------------------------------------------
-    X_train_path = PROCESSED_DATA_DIR / "X_train.csv"
-    y_train_path = PROCESSED_DATA_DIR / "y_train.csv"
+    X_train_path = PROCESSED_DATA_DIR / "X_train.pkl"
+    y_train_path = PROCESSED_DATA_DIR / "y_train.pkl"
     
     if not X_train_path.exists():
         logger.error("❌ Arquivos de treino nao encontrados.")
         return
 
     logger.info("📂 Carregando dados de treino...")
-    X_train = pd.read_csv(X_train_path)
-    y_train = pd.read_csv(y_train_path).values.ravel()
+    X_train = pd.read_pickle(X_train_path)
+    y_train = pd.read_pickle(y_train_path).values.ravel()
     
     logger.info(f"   Dimensoes: {X_train.shape[0]} amostras, {X_train.shape[1]} features.")
     
@@ -112,9 +112,8 @@ def train_stacking():
     xgb_path = MODELS_DIR / "xgb_best_model.pkl"
     if xgb_path.exists():
         xgb_pipeline = joblib.load(xgb_path)
-        xgb_clf = xgb_pipeline.named_steps['model']
-        base_estimators.append(('xgb', xgb_clf))
-        logger.info(f"✅ XGBoost carregado: {type(xgb_clf).__name__}")
+        base_estimators.append(('xgb', xgb_pipeline))
+        logger.info(f"✅ XGBoost carregado: {type(xgb_pipeline.named_steps['model']).__name__} (Pipeline Completo)")
     else:
         logger.error("❌ XGBoost nao encontrado. Treine primeiro com: python main.py --models xgb")
         return
@@ -123,9 +122,8 @@ def train_stacking():
     rf_path = MODELS_DIR / "rf_best_model.pkl"
     if rf_path.exists():
         rf_pipeline = joblib.load(rf_path)
-        rf_clf = rf_pipeline.named_steps['model']
-        base_estimators.append(('rf', rf_clf))
-        logger.info(f"✅ Random Forest carregado: {type(rf_clf).__name__}")
+        base_estimators.append(('rf', rf_pipeline))
+        logger.info(f"✅ Random Forest carregado: {type(rf_pipeline.named_steps['model']).__name__} (Pipeline Completo)")
     else:
         logger.error("❌ Random Forest nao encontrado. Treine primeiro com: python main.py --models rf")
         return
@@ -134,9 +132,8 @@ def train_stacking():
     lgbm_path = MODELS_DIR / "lgbm_best_model.pkl"
     if lgbm_path.exists():
         lgbm_pipeline = joblib.load(lgbm_path)
-        lgbm_clf = lgbm_pipeline.named_steps['model']
-        base_estimators.append(('lgbm', lgbm_clf))
-        logger.info(f"✅ LightGBM carregado: {type(lgbm_clf).__name__}")
+        base_estimators.append(('lgbm', lgbm_pipeline))
+        logger.info(f"✅ LightGBM carregado: {type(lgbm_pipeline.named_steps['model']).__name__} (Pipeline Completo)")
     else:
         logger.warning("⚠️ LightGBM nao encontrado. Prosseguindo sem ele.")
     
@@ -144,9 +141,8 @@ def train_stacking():
     logreg_path = MODELS_DIR / "logreg_best_model.pkl"
     if logreg_path.exists():
         logreg_pipeline = joblib.load(logreg_path)
-        logreg_clf = logreg_pipeline.named_steps['model']
-        base_estimators.append(('logreg', logreg_clf))
-        logger.info(f"✅ Logistic Regression carregado: {type(logreg_clf).__name__}")
+        base_estimators.append(('logreg', logreg_pipeline))
+        logger.info(f"✅ Logistic Regression carregado: {type(logreg_pipeline.named_steps['model']).__name__} (Pipeline Completo)")
     
     logger.info(f"📊 Total de Base Learners: {len(base_estimators)}")
     logger.info(f"   Modelos: {[name for name, _ in base_estimators]}")
@@ -173,31 +169,18 @@ def train_stacking():
         cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE),
         stack_method='predict_proba',  # Passa probabilidades ao meta-learner
         passthrough=False,              # Nao passa features originais (evita overfitting)
-        n_jobs=1,                       # Estabilidade no Windows
+        n_jobs=-1,                      # Utilizando multi-threading otimizado
         verbose=1
     )
     
     # -------------------------------------------------------------------------
-    # 4. PIPELINE COMPLETO (EDA + Preprocessor + Stacking)
-    # -------------------------------------------------------------------------
-    logger.info("🔬 Construindo pipeline com Feature Engineering...")
-    
-    eda_engineer = EDAFeatureEngineer()
-    X_transformed = eda_engineer.fit_transform(X_train)
-    preprocessor = get_preprocessor(X_transformed)
-    
-    stacking_pipeline = Pipeline(steps=[
-        ('eda_features', eda_engineer),
-        ('preprocessor', preprocessor),
-        ('model', stacking_clf)
-    ])
-    
-    # -------------------------------------------------------------------------
-    # 5. TREINAMENTO
+    # 4. TREINAMENTO
     # -------------------------------------------------------------------------
     logger.info("⚡ Treinando Stacking Ensemble (isso pode demorar)...")
-    logger.info("   O StackingClassifier usa CV interna para gerar predicoes out-of-fold.")
-    stacking_pipeline.fit(X_train, y_train)
+    logger.info("   O StackingClassifier usa CV interna para gerar predicoes out-of-fold em Pipelines íntegros.")
+    stacking_clf.fit(X_train, y_train)
+    
+    stacking_pipeline = stacking_clf
     
     logger.info("✅ Treinamento do Stacking concluido!")
     

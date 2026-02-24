@@ -78,8 +78,8 @@ def enforce_precision_target(target_precision=0.20, model_filename="xgb_best_mod
     
     # 1. Carregar Dados de Teste (Blind Set)
     try:
-        X_test = pd.read_csv(PROCESSED_DATA_DIR / "X_test.csv")
-        y_test = pd.read_csv(PROCESSED_DATA_DIR / "y_test.csv").values.ravel()
+        X_test = pd.read_pickle(PROCESSED_DATA_DIR / "X_test.pkl")
+        y_test = pd.read_pickle(PROCESSED_DATA_DIR / "y_test.pkl").values.ravel()
         model_path = MODELS_DIR / model_filename
         
         if not model_path.exists():

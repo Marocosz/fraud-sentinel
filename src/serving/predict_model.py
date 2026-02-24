@@ -46,18 +46,14 @@ logger = logging.getLogger(__name__)
 
 def load_inference_artifacts(model_name="logreg"):
     """
-    Carrega os artefatos necessários para a inferência: o Modelo e os Dados.
+    Função Helper de Descarregamento de Artefatos em Lote (Memory-Loader).
     
-    Por que carregar dados aqui?
-    - Em um sistema real, receberíamos um JSON via API.
-    - Como estamos simulando, carregamos o dataset de Teste (X_test) para sortear
-      transações aleatórias e fingir que acabaram de chegar.
-    
-    Args:
-        model_name (str): Identificador do modelo (ex: 'logreg', 'xgboost').
-        
-    Returns:
-        tuple: (modelo_carregado, dataframe_X, array_y)
+    - O que ela faz: Vai até a pasta da arquitetura e traz em memória `Pipeline` Picklizado, 
+      Array de Features formatada e Alvo.
+    - O que retorna: tuple: (modelo_carregado, dataframe_X, array_y)
+    - Por que carregar dados aqui (mockup de produção)? Em um sistema real transacional, receberíamos um JSON via API REST.
+      Como estamos simulando um Teste Cego para provar pro board executivo, carregamos o conjunto 
+      separado na etapa 1 para sortear e bater.
     """
     try:
         # Construção dinâmica do caminho do modelo (padrão definido em train_model.py)
@@ -74,8 +70,8 @@ def load_inference_artifacts(model_name="logreg"):
         # Carregamos X_test (atributos) e y_test (gabarito)
         # O gabarito serve apenas para mostrar no log se o modelo "Acertou" ou "Errou",
         # num cenário real de produção, obviamente não teríamos o y_test.
-        X_test = pd.read_csv(PROCESSED_DATA_DIR / "X_test.csv")
-        y_test = pd.read_csv(PROCESSED_DATA_DIR / "y_test.csv").values.ravel()
+        X_test = pd.read_pickle(PROCESSED_DATA_DIR / "X_test.pkl")
+        y_test = pd.read_pickle(PROCESSED_DATA_DIR / "y_test.pkl").values.ravel()
         
         return model, X_test, y_test
     

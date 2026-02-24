@@ -62,41 +62,45 @@ logger = logging.getLogger(__name__)
 
 def get_model_config():
     """
-    Retorna a configuracao do modelo LightGBM.
-    Importa LGBMClassifier dinamicamente para evitar ImportError
-    caso o pacote nao esteja instalado.
+    Retorna a configuracao do modelo LightGBM baseada estruturamente no Pipeline do Projeto.
+    
+    - Por que ela existe: O LightGBM pode falhar na importação local C++ de SOs antigos ou não instalados. O `import lightgbm`
+      fica aqui dentro para evitar que o orquestrador `main.py` dê Crash ao coletar outros módulos que não quebravam.
+    - O que recebe: Dinâmico interno.
+    - O que retorna: Um dicionário DTO nos mesmos padrões do `MODEL_CONFIG` dos sub-modelos.
     """
     from lightgbm import LGBMClassifier
     
+    # Retorno Configuration Object
+    # Intenção: Focar em parâmetros assíncronos 'leaf-wise'. Limitamos 'num_leaves' associado à 'max_depth'
+    # previnindo overfit absoluto por crescimento denso unilateral da árvore típica deste pacote.
     return {
         "model_class": LGBMClassifier,
         "model_params": {
             "class_weight": "balanced",
             "n_jobs": -1,
             "random_state": RANDOM_STATE,
-            "verbose": -1,      # Desativa output de treinamento do LightGBM
-            "importance_type": "gain",  # Feature importance por ganho de informacao
+            "verbose": -1,      # Desativa output excessivo e logs desnecessários originais da lib.
+            "importance_type": "gain",  # Mensurar feature importance não por splits, e sim pelo Information Gain (Purificação)
         },
         
         "smote_strategy": None,
         "cv_folds": 3,
         
-        # Espaco de Busca Profissional (RandomizedSearchCV)
-        # Baseado em: "LightGBM Practical Guide" + competicoes Kaggle
         "param_distributions": {
             'model__learning_rate': [0.01, 0.03, 0.05, 0.1],
             'model__n_estimators': [100, 200, 300, 500, 700],
-            'model__max_depth': [-1, 3, 5, 7, 10],       # -1 = sem limite
-            'model__num_leaves': [15, 31, 63, 127],       # Complexidade da arvore
-            'model__min_child_samples': [5, 10, 20, 50],  # Min amostras por folha 
-            'model__subsample': [0.6, 0.7, 0.8, 0.9, 1.0], # Bagging
+            'model__max_depth': [-1, 3, 5, 7, 10],       
+            'model__num_leaves': [15, 31, 63, 127],      
+            'model__min_child_samples': [5, 10, 20, 50], 
+            'model__subsample': [0.6, 0.7, 0.8, 0.9, 1.0], 
             'model__colsample_bytree': [0.6, 0.7, 0.8, 0.9, 1.0],
-            'model__reg_alpha': [0, 0.01, 0.1, 1.0],     # L1
-            'model__reg_lambda': [0, 0.1, 1.0, 5.0],     # L2
+            'model__reg_alpha': [0, 0.01, 0.1, 1.0],     
+            'model__reg_lambda': [0, 0.1, 1.0, 5.0],     
         },
         
         "n_iter": 60,
-        "n_jobs": 1,     # Jobs do search (LightGBM usa paralelismo interno)
+        "n_jobs": 1,     # Deixa 1 pra CV. O paralelismo multithreading acontece dentro da compilação OpenMP do LightGBM puro.
         "verbose": 1
     }
 
@@ -104,12 +108,12 @@ def get_model_config():
 def train_lightgbm():
     """
     Treina o modelo LightGBM com otimizacao completa de hiperparametros.
+    *Detalhe Arquitetural: Não herda de `BaseTrainer` porque trata-se de um Script Alternativo/Legado
+    para validar customizações finas que o Base ainda não dispunha.*
     
-    METODOLOGIA:
-    ----------------------
-    1. Pipeline Completo: EDAFeatureEngineer -> ColumnTransformer -> LGBMClassifier.
-    2. RandomizedSearchCV com 60 iteracoes para explorar espaco amplo.
-    3. Threshold otimizado em hold-out de validacao (sem data leakage).
+    - O que ela faz: O script lê o conjunto (pickles), roda a malha (RandomSearch), computa Custom Thresholding 
+      e descarrega persistência nos volumes JSONL.
+    - Quando é chamada: No orquestrador primário `main.py` sob parâmetro `--models lgbm`.
     """
     try:
         MODEL_CONFIG = get_model_config()
@@ -123,16 +127,16 @@ def train_lightgbm():
     # -------------------------------------------------------------------------
     # 1. CARGA DE DADOS
     # -------------------------------------------------------------------------
-    X_train_path = PROCESSED_DATA_DIR / "X_train.csv"
-    y_train_path = PROCESSED_DATA_DIR / "y_train.csv"
+    X_train_path = PROCESSED_DATA_DIR / "X_train.pkl"
+    y_train_path = PROCESSED_DATA_DIR / "y_train.pkl"
     
     if not X_train_path.exists():
         logger.error("❌ Arquivos de treino nao encontrados.")
         return
 
     logger.info("📂 Carregando dados de treino...")
-    X_train = pd.read_csv(X_train_path)
-    y_train = pd.read_csv(y_train_path).values.ravel()
+    X_train = pd.read_pickle(X_train_path)
+    y_train = pd.read_pickle(y_train_path).values.ravel()
     
     logger.info(f"   Dimensoes: {X_train.shape[0]} amostras, {X_train.shape[1]} features.")
 

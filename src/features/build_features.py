@@ -7,8 +7,6 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, RobustScaler
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.impute import SimpleImputer
-from imblearn.over_sampling import SMOTE
-from imblearn.pipeline import Pipeline as ImbPipeline
 from src.config import PROCESSED_DATA_DIR, MODELS_DIR, RANDOM_STATE
 
 # ==============================================================================
@@ -371,17 +369,11 @@ def build_pipeline(X_train, model):
 def process_features():
     """
     Funcao de execucao isolada (opcional).
-    Gera o preprocessor e testa o pipeline completo de resampling (SMOTE).
-    
-    Nota Importante de Arquitetura:
-    - O SMOTE (criacao de dados sinteticos) so deve ser aplicado no TREINO.
-    - Por isso, temos um pipeline 'full_pipeline' que inclui SMOTE para validacao,
-      mas salvamos em disco apenas o 'preprocessor' (sem SMOTE) para ser usado
-      nos dados de teste/producao.
+    Gera o preprocessor e testa o pipeline completo.
     """
     print("Iniciando construcao de features...")
-    X_train = pd.read_csv(PROCESSED_DATA_DIR / "X_train.csv")
-    y_train = pd.read_csv(PROCESSED_DATA_DIR / "y_train.csv").values.ravel()
+    X_train = pd.read_pickle(PROCESSED_DATA_DIR / "X_train.pkl")
+    y_train = pd.read_pickle(PROCESSED_DATA_DIR / "y_train.pkl").values.ravel()
 
     # Aplica feature engineering EDA-driven
     eda_engineer = EDAFeatureEngineer()
@@ -390,28 +382,22 @@ def process_features():
     # Cria a "receita" de transformacao baseada nas colunas do treino
     preprocessor = get_preprocessor(X_engineered)
 
-    # Pipeline de Validacao (com Oversampling)
-    # Usado apenas para verificar se o SMOTE roda sem erro de memoria/tipo
-    full_pipeline = ImbPipeline(steps=[
+    pipeline = Pipeline(steps=[
         ('eda_features', eda_engineer),
-        ('preprocessor', preprocessor),
-        ('smote', SMOTE(random_state=RANDOM_STATE))
+        ('preprocessor', preprocessor)
     ])
 
-    print("   Ajustando transformadores (Fit) e aplicando SMOTE...")
-    # fit_resample executa: 1.Feature Eng -> 2.Transforma -> 3.Cria Fraudes Falsas (SMOTE)
-    X_train_resampled, y_train_resampled = full_pipeline.fit_resample(X_train, y_train)
+    print("   Ajustando transformadores (Fit)...")
+    X_train_transformed = pipeline.fit_transform(X_train)
     
     # PERSISTENCIA CRITICA:
-    # Salvamos apenas o 'preprocessor'.
-    # Motivo: Em producao, nao queremos gerar dados falsos (SMOTE), apenas transformar os reais.
     joblib.dump(preprocessor, MODELS_DIR / "preprocessor.joblib")
     
     print(f"   Features processadas com sucesso!")
-    print(f"   Shape Original: {X_train.shape} -> Pos-SMOTE: {X_train_resampled.shape}")
+    print(f"   Shape Original: {X_train.shape} -> Features Extraidas: {X_train_transformed.shape}")
     print(f"   Pipeline salvo em: {MODELS_DIR / 'preprocessor.joblib'}")
     
-    return full_pipeline
+    return pipeline
 
 if __name__ == "__main__":
     process_features()

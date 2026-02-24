@@ -9,9 +9,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, ExtraTreesClassifier, AdaBoostClassifier, HistGradientBoostingClassifier
 from sklearn.tree import DecisionTreeClassifier
 from xgboost import XGBClassifier
-from imblearn.pipeline import Pipeline as ImbPipeline
-from imblearn.over_sampling import SMOTE
-
+from sklearn.pipeline import Pipeline
 # ==============================================================================
 # ARQUIVO: compare_models.py
 #
@@ -27,7 +25,7 @@ from imblearn.over_sampling import SMOTE
 #   - Carregar o dataset de treino processado (X_train.csv, y_train.csv).
 #   - Aplicar amostragem estratificada para acelerar a comparação inicial (evitar horas de treino em 1M linhas).
 #   - Definir uma lista de competidores (LogReg, Random Forest, XGBoost, etc).
-#   - Garantir que o pré-processamento (SMOTE, Scaler) ocorra DENTRO de cada fold da validação cruzada (prevenção de Data Leakage).
+#   - Garantir que o pré-processamento (Scaler, Encoders) ocorra DENTRO de cada fold da validação cruzada (prevenção de Data Leakage).
 #   - Exportar resultados em CSV (persistência) e TXT (relatório executivo).
 #   - Gerar gráficos comparativos para facilitar a decisão visual.
 #
@@ -39,7 +37,6 @@ from imblearn.over_sampling import SMOTE
 #
 # DEPENDÊNCIAS EXTERNAS:
 #   - Scikit-Learn (Pipelines, Models)
-#   - Imbalanced-Learn (SMOTE, ImbPipeline)
 #   - XGBoost / LightGBM (Gradient Boosting otimizado)
 # ==============================================================================
 
@@ -73,7 +70,14 @@ COMPARISON_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 def compare_algorithms():
     """
-    Função principal que orquestra todo o benchmark de modelos.
+    Função gerente que orquestra o benchmarking entre as bibliotecas e arquiteturas de ML heterogêneas.
+    
+    - O que ela faz: Constroi pipelines injetando as rotinas numéricas e o tratador de EDA,
+      e cruza-os contra vários classificadores. Tabula os Folds em relatório.
+    - Quando é chamada: No pipeline principal quando `--compare-models` é parametrizado.
+    - Regra de Negócio Crítica (Leakage Prevention):
+      Garante que o pré-processamento ocorra *após* a partição do CV fold interno chamando o 'Pipeline' do Scikit-Learn
+      em vez de processar todo o X_train globalmente. Impede contaminação de Outliers/Medianas.
     """
     print(f"🥊 INICIANDO TORNEIO DE MODELOS (Amostra: {SAMPLE_SIZE} linhas)")
     
@@ -82,9 +86,9 @@ def compare_algorithms():
     # Carrega os dados processados que foram gerados na etapa de Feature Engineering.
     # --------------------------------------------------------------------------
     try:
-        X = pd.read_csv(PROCESSED_DATA_DIR / "X_train.csv")
+        X = pd.read_pickle(PROCESSED_DATA_DIR / "X_train.pkl")
         # Garante que y seja um array 1D (vetor), necessário para o scikit-learn
-        y = pd.read_csv(PROCESSED_DATA_DIR / "y_train.csv").values.ravel()
+        y = pd.read_pickle(PROCESSED_DATA_DIR / "y_train.pkl").values.ravel()
     except FileNotFoundError:
         print("❌ Erro: Arquivos de treino não encontrados. Rode 'python main.py --step split'.")
         return
@@ -172,7 +176,7 @@ def compare_algorithms():
         f"===================================",
         f"Amostra: {len(X_sample)} linhas",
         f"Folds: {CV_FOLDS}",
-        f"Estratégia: Preprocessamento -> SMOTE -> Modelo",
+        f"Estratégia: Preprocessamento -> Modelo",
         f"-----------------------------------"
     ]
 
@@ -186,15 +190,13 @@ def compare_algorithms():
     for name, model in models:
         print(f"   >> Avaliando: {name}...", end=" ")
         
-        # CRITICO: Pipeline com Imbalanced-Learn + Feature Engineering
+        # CRITICO: Pipeline com Scikit-Learn + Feature Engineering
         # O EDAFeatureEngineer aplica as melhorias do EDA (sentinelas, outliers, flags).
-        # O SMOTE (criacao de dados sinteticos) deve ocorrer DENTRO do pipeline.
         # Isso garante que ele so veja os dados de TREINO do fold atual.
-        pipeline = ImbPipeline(steps=[
+        pipeline = Pipeline(steps=[
             ('eda_features', eda_engineer),                # 0. Feature Engineering EDA-driven
             ('preprocessor', preprocessor),                # 1. Trata categoricas/numericas
-            ('smote', SMOTE(random_state=RANDOM_STATE)),   # 2. Balanceia as classes artificialmente
-            ('model', model)                               # 3. Treina o modelo
+            ('model', model)                               # 2. Treina o modelo
         ])
         
         # Executa a Validação Cruzada

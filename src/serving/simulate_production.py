@@ -58,8 +58,8 @@ class ProductionSimulator:
     def load_sample_data(self, n_legit: int = 500, n_fraud: int = 30) -> pd.DataFrame:
         """Carrega e embaralha os dados das bases de testes."""
         try:
-            X_test = pd.read_csv(PROCESSED_DATA_DIR / "X_test.csv")
-            y_test = pd.read_csv(PROCESSED_DATA_DIR / "y_test.csv").values.ravel()
+            X_test = pd.read_pickle(PROCESSED_DATA_DIR / "X_test.pkl")
+            y_test = pd.read_pickle(PROCESSED_DATA_DIR / "y_test.pkl").values.ravel()
         except FileNotFoundError:
             print("❌ Arquivos de teste não encontrados em data/processed/. Execute make_dataset.py.")
             sys.exit(1)

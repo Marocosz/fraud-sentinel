@@ -74,8 +74,11 @@ class EDAReporter:
         """
         Inicializa o reporter com o caminho dos dados.
         
-        Args:
-            data_path (str/Path): Caminho para o arquivo CSV de dados brutos.
+        - O que recebe:
+          data_path (str/Path): Caminho para o arquivo CSV de dados brutos.
+          Ex: 'data/raw/Base.csv'
+        - O que retorna: Instância de Si Mesmo.
+        - Quando é chamada: Imediatamente antes de invocar o `.run()` no pipeline principal.
         """
         self.data_path = Path(data_path)
         self.df = None

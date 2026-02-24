@@ -21,9 +21,8 @@ from sklearn.model_selection import train_test_split
 #   - Realizar o split ESTRATIFICADO (mantendo a % de fraudes).
 #   - Salvar os artefatos (X_train, X_test, y_train, y_test) prontos para uso.
 #
-# COMUNICAÇÃO:
 #   - Lê: data/raw/Base.csv
-#   - Escreve: data/processed/X_train.csv, X_test.csv, y_train.csv, y_test.csv
+#   - Escreve: data/processed/X_train.pkl, X_test.pkl, y_train.pkl, y_test.pkl
 # ==============================================================================
 
 # Adiciona raiz ao path
@@ -43,10 +42,13 @@ except ImportError:
 
 def optimize_memory_usage(df):
     """
-    Itera por todas as colunas do dataframe e modifica o tipo de dado
-    para reduzir o uso de memória (downcasting).
+    Sub-rotina responsável pelo DOWNCAST de matrizes de dados (DataFrames).
     
-    Ex: float64 -> float32, int64 -> int16/int8.
+    - O que faz: Itera por todas as colunas do dataframe e avalia seus Max/Min. Modifica o tipo de dado
+      (ex. int64 -> int8; float64 -> float32) preservando a exatidão, para reduzir o uso massivo de RAM (OOM Mitigation).
+    - Quando é ativada: Automaticamente pelo Split, imediatamente *antes* de gravar dados particionados.
+    - O que recebe: DataFrame bruto.
+    - O que retorna: DataFrame enxuto (~50% mais leve).
     """
     start_mem = df.memory_usage().sum() / 1024**2
     print(f"   💾 Memória antes da otimização: {start_mem:.2f} MB")
@@ -80,7 +82,14 @@ def optimize_memory_usage(df):
 
 def load_and_split_data():
     """
-    Função principal de processamento.
+    Função gerente da ingestão inicial do Banco de Dados / Data Lake Pessoal.
+    
+    - O que ela faz: Puxa o File CSV Base, confirma se o dataset contempla Target, separa estratificado com Random Seed 
+      (fixando base de testes definitiva que não treina, visando auditoria fidedigna do comitê de MLOps)
+      e salva na rede.
+    - Regra Crítica: A otimização de memória *deve estar* após o particionamento temporal para mitigar
+      Data Leakage. Usar Downcast com dados min/max globais antes do Test_Split contamina o Treino e Falsifica CVs.
+    - Quando é ativada: No inicio do Orquestrador (--step split).
     """
     print(f"🚀 Iniciando pipeline de dados...")
     print(f"📂 Carregando dataset: {RAW_DATA_PATH}...")
@@ -133,13 +142,13 @@ def load_and_split_data():
     # Garante diretório de saída
     PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Salvando arquivos
-    # index=False evita criar uma coluna "Unnamed: 0" inútil
-    print("💾 Salvando arquivos processados em data/processed/...")
-    X_train.to_csv(PROCESSED_DATA_DIR / "X_train.csv", index=False)
-    X_test.to_csv(PROCESSED_DATA_DIR / "X_test.csv", index=False)
-    y_train.to_csv(PROCESSED_DATA_DIR / "y_train.csv", index=False)
-    y_test.to_csv(PROCESSED_DATA_DIR / "y_test.csv", index=False)
+    # Salvando arquivos no formato Pickle (.pkl) para preservar os Data Types nativos (int8, float32)
+    # Salvar em CSV reverteria toda a otimização de memória do pipeline para int64/float64.
+    print("💾 Salvando arquivos processados em data/processed/ (.pkl para preservar otimização de RAM)...")
+    X_train.to_pickle(PROCESSED_DATA_DIR / "X_train.pkl")
+    X_test.to_pickle(PROCESSED_DATA_DIR / "X_test.pkl")
+    y_train.to_pickle(PROCESSED_DATA_DIR / "y_train.pkl")
+    y_test.to_pickle(PROCESSED_DATA_DIR / "y_test.pkl")
 
     print("🏁 Pipeline de dados concluído com sucesso!")
 

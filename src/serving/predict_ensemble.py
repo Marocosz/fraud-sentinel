@@ -79,8 +79,11 @@ class FraudEnsemblePredictor:
 
     def _load_artifacts(self) -> None:
         """
-        Carrega os modelos e thresholds persistidos no disco.
-        Garante tolerância a falhas caso algum artefato esteja ausente.
+        Rotina crítica de Bootstrap do Comitê que carrega os modelos e thresholds persistidos no disco.
+        
+        - Lógica: Itera sobre a configuração em Dicionário. Tenta carregar serializações `.pkl` e arquivos `.txt`.
+        - Erros e Resiliência: É garantida tolerância a falhas caso um dos modelos falhe (ex: LightGBM C++ ausente).
+          Caso `loaded_count` resulte em zero, um `ValueError` paraliza o ambiente pois é letal para fraude operar às escuras.
         """
         logger.info("Iniciando carregamento do Comitê de Modelos (Ensemble)...")
         loaded_count = 0
@@ -111,6 +114,7 @@ class FraudEnsemblePredictor:
             except Exception as e:
                 logger.warning(f"   ⚠️ Erro ao ler threshold ({e}). Usando fallback: 0.5")
 
+        # Regra de Negócio: Não permite simulação online com o comitê totalmente corrompido ou ausente.
         if loaded_count == 0:
             logger.error("Nenhum modelo foi carregado! O sistema não pode operar.")
             raise ValueError("O comitê está vazio. Falha crítica no motor de inferência.")
@@ -118,7 +122,7 @@ class FraudEnsemblePredictor:
     def predict_batch(self, df: pd.DataFrame) -> List[TransactionResult]:
         """
         Recebe um lote de transações (DataFrame) e avalia cada uma através do comitê.
-        Aplica a Regra de Negócio de Veto Especial.
+        Aplica a Regra de Negócio de Veto Especial. Vectorizado para alta performance.
         
         Args:
             df (pd.DataFrame): DataFrame contendo features prontas.
@@ -127,39 +131,51 @@ class FraudEnsemblePredictor:
             List[TransactionResult]: Lista de objetos tipados com o veredito por transação.
         """
         results: List[TransactionResult] = []
+        n_samples = len(df)
         
-        for idx in range(len(df)):
-            transaction = df.iloc[[idx]]
+        if n_samples == 0:
+            return results
+
+        # 1. Realizar Predições em Lote (Vectorizado)
+        # Em vez de prever linha a linha, chamamos o predict_proba(df) uma vez por modelo
+        # reduzindo drasticamente o tempo de inferencia.
+        predictions = {}
+        for name, config in self.committee.items():
+            if config.model_obj is not None:
+                try:
+                    probs = config.model_obj.predict_proba(df)[:, 1]
+                    is_frauds = probs >= config.threshold
+                    
+                    predictions[name] = {
+                        "probs": probs,
+                        "is_frauds": is_frauds,
+                        "threshold": config.threshold
+                    }
+                except Exception as e:
+                    logger.error(f"Erro na predição em lote do modelo {name}: {e}")
+                    
+        total_active_models = len(predictions)
+        
+        # 2. Avaliar Veredito Linha a Linha (após previsões)
+        for idx in range(n_samples):
             committee_details = {}
             fraud_votes = 0
             voted_fraud_models = []
             
-            # 1. Realizar Predições Individuais
-            for name, config in self.committee.items():
-                if config.model_obj is None:
-                    continue # Pula modelo indisponível
+            for name, preds in predictions.items():
+                prob = preds["probs"][idx]
+                is_fraud = preds["is_frauds"][idx]
                 
-                try:
-                    prob = config.model_obj.predict_proba(transaction)[0, 1]
-                    is_fraud = bool(prob >= config.threshold)
+                if is_fraud:
+                    fraud_votes += 1
+                    voted_fraud_models.append(name)
                     
-                    if is_fraud:
-                        fraud_votes += 1
-                        voted_fraud_models.append(name)
-                        
-                    committee_details[name] = {
-                        "score": round(prob, 4),
-                        "threshold": round(config.threshold, 4),
-                        "vote_fraud": is_fraud
-                    }
-                except Exception as e:
-                    logger.error(f"Erro na predição do modelo {name}: {e}")
+                committee_details[name] = {
+                    "score": round(float(prob), 4),
+                    "threshold": round(preds["threshold"], 4),
+                    "vote_fraud": bool(is_fraud)
+                }
             
-            # 2. Lógica de Negócio: Smart Majority Vote com Veto Especial
-            # CRÍTICO: denominação usa apenas os modelos que sobreviveram a possíveis falhas
-            total_active_models = len(committee_details)
-            
-            # Default fallback para falha completa
             if total_active_models == 0:
                 results.append(TransactionResult(
                     transaction_index=df.index[idx] if 'index' in df.columns else idx,
@@ -173,7 +189,6 @@ class FraudEnsemblePredictor:
                 
             majority_threshold = (total_active_models // 2) + 1
             
-            # Default
             final_decision = "APROVAR"
             confidence = "ALTA (Seguro)"
             
@@ -181,7 +196,6 @@ class FraudEnsemblePredictor:
                 final_decision = "BLOQUEAR"
                 confidence = "ALTA (Unanimidade/Maioria Clara)" if fraud_votes == total_active_models else "MÉDIA (Maioria)"
             elif fraud_votes > 0:
-                # Regra de Veto: Se APENAS o LightGBM (Campeão de Precisão) disser que é fraude
                 if len(voted_fraud_models) == 1 and voted_fraud_models[0] == 'lightgbm':
                     final_decision = "REVISÃO MANUAL"
                     confidence = "MÉDIA (Veto do Campeão de Precisão - LightGBM alerta risco grave)"
@@ -189,7 +203,6 @@ class FraudEnsemblePredictor:
                     final_decision = "APROVAR"
                     confidence = "MÉDIA (Divergência menor - Risco assumido)"
 
-            # Empacotar resultado strongly-typed
             trans_index = df.index[idx] if 'index' in df.columns else idx
             
             result = TransactionResult(
