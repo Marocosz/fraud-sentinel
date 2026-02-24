@@ -177,7 +177,8 @@ class EDAFeatureEngineer(BaseEstimator, TransformerMixin):
         conjunto de treino. Esses limites sao fixados e aplicados em
         transform() para treino E teste, evitando data leakage.
         """
-        X_work = X.copy() if isinstance(X, pd.DataFrame) else pd.DataFrame(X)
+        # Otimização: Não clona todo o DataFrame em memória na inspeção
+        X_work = X if isinstance(X, pd.DataFrame) else pd.DataFrame(X)
 
         # Trata sentinelas antes de calcular percentis (para nao incluir -1)
         for col in self.CLIP_COLUMNS:
@@ -199,18 +200,21 @@ class EDAFeatureEngineer(BaseEstimator, TransformerMixin):
         Aplica todas as transformacoes EDA-driven em sequencia.
         Retorna um DataFrame com as features engenheiradas.
         """
-        X = X.copy() if isinstance(X, pd.DataFrame) else pd.DataFrame(X)
+        # Otimização MLOps (Mitigação de OOM): Evitamos X.copy() inteiro e mutamos apenas
+        # features que chegam. Para o sklearn, instanciamos um dataframe sob demanda e assign inplace.
+        X = X if isinstance(X, pd.DataFrame) else pd.DataFrame(X)
 
         # ----- 1. REMOCAO DE FEATURES SEM SINAL -----
         cols_to_drop = [c for c in self.FEATURES_TO_DROP if c in X.columns]
         if cols_to_drop:
             X = X.drop(columns=cols_to_drop)
 
-        # ----- 2. TRATAMENTO DE SENTINELAS (-1 -> NaN + Flag) -----
         for col, flag_name in self.SENTINEL_COLUMNS.items():
             if col in X.columns:
+                # Usar np.where ou atribuição no dict do pandas, otimizado inplace ou sem cópia pesada
                 X[flag_name] = (X[col] != -1).astype(np.int8)
-                X[col] = X[col].replace(-1, np.nan)
+                # Cast to float32 specifically to avoid float64 memory explosion when filling NaN
+                X[col] = X[col].replace(-1, np.nan).astype(np.float32)
 
         # ----- 3. CLIPPING DE OUTLIERS -----
         if hasattr(self, 'clip_bounds_'):

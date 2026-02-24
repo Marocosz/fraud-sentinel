@@ -36,14 +36,14 @@
     - [src/config.py -- Configuracoes Globais](#srcconfigpy----configuracoes-globais)
     - [src/data/make_dataset.py -- Engenharia de Dados](#srcdatamake_datasetpy----engenharia-de-dados)
     - [src/features/build_features.py -- Pipeline de Features](#srcfeaturesbuild_featurespy----pipeline-de-features)
-    - [src/models/reg_log_model.py -- Logistic Regression](#srcmodelsreg_log_modelpy----logistic-regression)
-    - [src/models/decision_tree_model.py -- Decision Tree](#srcmodelsdecision_tree_modelpy----decision-tree)
-    - [src/models/random_forest_model.py -- Random Forest](#srcmodelsrandom_forest_modelpy----random-forest)
-    - [src/models/xgboost_model.py -- XGBoost](#srcmodelsxgboost_modelpy----xgboost)
-    - [src/models/mlp_model.py -- MLP Neural Network](#srcmodelsmlp_modelpy----mlp-neural-network)
-    - [src/models/isolation_forest_model.py -- Isolation Forest](#srcmodelsisolation_forest_modelpy----isolation-forest)
+    - [src/models/trainers/reg_log_model.py -- Logistic Regression](#srcmodelsreg_log_modelpy----logistic-regression)
+    - [src/models/trainers/decision_tree_model.py -- Decision Tree](#srcmodelsdecision_tree_modelpy----decision-tree)
+    - [src/models/trainers/random_forest_model.py -- Random Forest](#srcmodelsrandom_forest_modelpy----random-forest)
+    - [src/models/trainers/xgboost_model.py -- XGBoost](#srcmodelsxgboost_modelpy----xgboost)
+    - [src/models/trainers/mlp_model.py -- MLP Neural Network](#srcmodelsmlp_modelpy----mlp-neural-network)
+    - [src/models/trainers/isolation_forest_model.py -- Isolation Forest](#srcmodelsisolation_forest_modelpy----isolation-forest)
     - [src/models/compare_models.py -- Benchmark de Algoritmos](#srcmodelscompare_modelspy----benchmark-de-algoritmos)
-    - [src/models/predict_model.py -- Simulacao de Producao](#srcmodelspredict_modelpy----simulacao-de-producao)
+    - [src/serving/simulate_production.py -- Simulacao de Producao](#srcmodelspredict_modelpy----simulacao-de-producao)
     - [src/models/force_precision.py -- Ajuste de Precision-Alvo](#srcmodelsforce_precisionpy----ajuste-de-precision-alvo)
     - [src/visualization/generate_eda_report.py -- EDA Automatizada](#srcvisualizationgenerate_eda_reportpy----eda-automatizada)
     - [src/visualization/visualize.py -- Avaliacao Final](#srcvisualizationvisualizepy----avaliacao-final)
@@ -447,14 +447,14 @@ O Fraud Sentinel adota uma **arquitetura modular orientada a pipeline**, organiz
 
 ## 2.3 Fluxo Macro (Requisicao ate Resposta)
 
-| Etapa                               | Entrada                                                                                                                                                                                                                                                                                                                                                                               | Arquivo                                                                                                                                 | Descricao                                                                                                                                                                                                                                                                                                                                                                                         | Saida                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Ingestao de Dados                | `data/raw/Base.csv` -- O dataset bruto do BAF Suite (NeurIPS 2022) e o ponto de partida de todo o sistema. Contem todas as features sociodemograficas e comportamentais das aberturas de conta, com rotulagem binaria de fraude. E necessario como fonte primaria porque todo o pipeline depende de dados historicos rotulados para aprender padroes.                                 | `make_dataset.py`                                                                                                                       | Carrega o CSV bruto, aplica downcasting de tipos numericos (float64 para float32, int64 para int8) para reduzir consumo de RAM, valida a existencia da coluna target (`fraud_bool`), e executa a divisao estratificada 80/20 que garante matematicamente que a proporcao de fraudes (~1%) seja identica nos conjuntos de treino e teste.                                                          | `data/processed/X_train.csv`, `X_test.csv`, `y_train.csv`, `y_test.csv` -- Quatro arquivos CSV limpos e otimizados. Sao separados em features (X) e target (y) porque o scikit-learn exige essa separacao. O split estratificado e salvo em disco para que todas as etapas subsequentes trabalhem sobre exatamente os mesmos dados, garantindo reprodutibilidade.                                                                                                                                                 |
-| 2. Analise Exploratoria             | `data/raw/Base.csv` -- O dataset bruto original e carregado novamente (nao os processados) porque a EDA precisa analisar os dados no estado natural, sem transformacoes de escala ou encoding, para identificar problemas reais como nulos, outliers e distribuicoes originais.                                                                                                       | `generate_eda_report.py`                                                                                                                | Executa um raio-X completo dos dados: calcula estatisticas descritivas, quantifica outliers (IQR), roda testes de hipotese (Mann-Whitney U) para validar significancia estatistica de cada feature, calcula Mutual Information para ranquear importancia, gera boxplots comparativos, heatmaps de correlacao (Spearman), analises de risco categorico, e um dashboard HTML interativo (Sweetviz). | `reports/data/*.csv` (7 tabelas de metricas), `reports/figures/eda/*.png` (7+ graficos), `reports/eda_summary.txt` (relatorio textual consolidado), `reports/sweetviz_report.html` (dashboard interativo) -- Esses artefatos servem para o cientista de dados tomar decisoes informadas sobre quais features usar, quais tratamentos aplicar, e validar cientificamente que os dados possuem sinal discriminativo para fraude.                                                                                    |
-| 3. Benchmark de Modelos (Opcional)  | `data/processed/X_train.csv`, `y_train.csv` -- Os dados de treino processados sao necessarios porque o benchmark precisa avaliar algoritmos sobre dados comparaveis. Uma amostra estratificada de 50k linhas e extraida para viabilizar a execucao em tempo razoavel sem perder representatividade estatistica.                                                                       | `compare_models.py`                                                                                                                     | Executa um torneio entre 8 a 10 algoritmos (LogReg, DecisionTree, RandomForest, GradientBoosting, HistGradientBoosting, ExtraTrees, AdaBoost, XGBoost, e opcionalmente LightGBM e CatBoost) usando validacao cruzada estratificada de 5 folds. O SMOTE e aplicado dentro de cada fold via ImbPipeline para prevenir data leakage. Mede ROC-AUC, Recall, Precision e F1.                           | `reports/data/models_comparison_results.csv` (tabela com medias e desvios de todas as metricas), `reports/model_comparison_report.txt` (relatorio executivo com ranking), `reports/figures/model_comparison_metrics.png` (grafico de barras comparativo) -- Esses artefatos permitem escolher objetivamente qual algoritmo tem melhor potencial antes de investir tempo na otimizacao de hiperparametros.                                                                                                         |
-| 4. Treinamento e Otimizacao         | `data/processed/X_train.csv`, `y_train.csv` -- Os dados de treino sao necessarios para o modelo aprender os padroes de fraude. Cada script de modelo os carrega para construir o pipeline completo (preprocessamento + classificador) e otimizar hiperparametros via busca exaustiva.                                                                                                 | `reg_log_model.py`, `decision_tree_model.py`, `random_forest_model.py`, `xgboost_model.py`, `mlp_model.py`, `isolation_forest_model.py` | Cada script cria um pipeline (preprocessor + modelo), executa GridSearchCV com Stratified K-Fold (3 folds) para encontrar os melhores hiperparametros, retreina o modelo vencedor no dataset completo (quando aplicavel), e executa Threshold Tuning que varre a curva Precision-Recall para encontrar o limiar de decisao que maximiza o F1-Score.                                               | `models/{nome}_best_model.pkl` (modelo serializado pronto para producao), `models/model_{nome}_{timestamp}.pkl` (copia versionada para historico), `models/{nome}_threshold.txt` (threshold otimizado), `models/{nome}_best_model_params.txt` (hiperparametros vencedores), `reports/experiments_log.json` (registro do experimento) -- Cada artefato cumpre um papel: o PKL e o modelo reutilizavel, o threshold define o ponto de operacao, e o JSON garante rastreabilidade completa de todos os experimentos. |
-| 5. Avaliacao Final                  | `data/processed/X_test.csv`, `y_test.csv` (dados que o modelo nunca viu) e `models/{nome}_best_model.pkl` (modelo treinado) -- O blind test set e essencial porque simula dados reais de producao. Usar dados de treino para avaliar geraria metricas artificialmente infladas (overfitting). O modelo e carregado serializado para simular exatamente o que aconteceria em producao. | `visualize.py`                                                                                                                          | Carrega o modelo treinado e os dados de teste, gera predicoes de classe e probabilidade, calcula metricas finais (ROC-AUC, Precision, Recall, F1), plota a Matriz de Confusao (visualiza falsos positivos e negativos), a Curva ROC (capacidade de discriminacao) e o grafico de importancia de features (explicabilidade). Atualiza o log de experimentos com as metricas reais.                 | `reports/figures/confusion_matrix_{nome}.png`, `reports/figures/roc_curve_{nome}.png`, `reports/figures/feature_importance_coefficients.png` (se modelo linear) -- Graficos essenciais para validar se o modelo esta pronto para producao e comunicar resultados para stakeholders. O `experiments_log.json` e atualizado com metricas reais de teste, fechando o ciclo de rastreabilidade.                                                                                                                       |
-| 6. Simulacao de Producao (Opcional) | `models/{nome}_best_model.pkl`, `models/{nome}_threshold.txt`, `data/processed/X_test.csv`, `y_test.csv` -- O modelo, o threshold e os dados de teste sao combinados para simular o comportamento real de um motor anti-fraude. O gabarito (y_test) e usado apenas para mostrar se o modelo acertou, mas nao influencia a decisao.                                                    | `predict_model.py`                                                                                                                      | Simula o recebimento de transacoes uma a uma. Para cada transacao: calcula o score de risco (probabilidade de fraude), aplica o motor de decisao trinivel (BLOQUEIO se score > threshold, REVISAO MANUAL se score > threshold\*0.8, APROVADO caso contrario), e exibe o resultado detalhado no console com comparacao ao gabarito. Amostra balanceada (50% fraude) para fins de demonstracao.     | Saida no console com decisao por transacao (BLOQUEIO/REVISAO/APROVADO), score de risco, gabarito real e indicacao de acerto/erro -- Nao gera artefatos em disco. A saida serve como demonstracao funcional do sistema operando em regime de inferencia, util para validacao qualitativa e apresentacoes.                                                                                                                                                                                                          |
+| Etapa                               | Entrada                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Arquivo                                                                                                                                 | Descricao                                                                                                                                                                                                                                                                                                                                                                                         | Saida                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Ingestao de Dados                | `data/raw/Base.csv` -- O dataset bruto do BAF Suite (NeurIPS 2022) e o ponto de partida de todo o sistema. Contem todas as features sociodemograficas e comportamentais das aberturas de conta, com rotulagem binaria de fraude. E necessario como fonte primaria porque todo o pipeline depende de dados historicos rotulados para aprender padroes.                                                                                                                    | `make_dataset.py`                                                                                                                       | Carrega o CSV bruto, aplica downcasting de tipos numericos (float64 para float32, int64 para int8) para reduzir consumo de RAM, valida a existencia da coluna target (`fraud_bool`), e executa a divisao estratificada 80/20 que garante matematicamente que a proporcao de fraudes (~1%) seja identica nos conjuntos de treino e teste.                                                          | `data/processed/X_train.csv`, `X_test.csv`, `y_train.csv`, `y_test.csv` -- Quatro arquivos CSV limpos e otimizados. Sao separados em features (X) e target (y) porque o scikit-learn exige essa separacao. O split estratificado e salvo em disco para que todas as etapas subsequentes trabalhem sobre exatamente os mesmos dados, garantindo reprodutibilidade.                                                                                                                                                 |
+| 2. Analise Exploratoria             | `data/raw/Base.csv` -- O dataset bruto original e carregado novamente (nao os processados) porque a EDA precisa analisar os dados no estado natural, sem transformacoes de escala ou encoding, para identificar problemas reais como nulos, outliers e distribuicoes originais.                                                                                                                                                                                          | `generate_eda_report.py`                                                                                                                | Executa um raio-X completo dos dados: calcula estatisticas descritivas, quantifica outliers (IQR), roda testes de hipotese (Mann-Whitney U) para validar significancia estatistica de cada feature, calcula Mutual Information para ranquear importancia, gera boxplots comparativos, heatmaps de correlacao (Spearman), analises de risco categorico, e um dashboard HTML interativo (Sweetviz). | `reports/data/*.csv` (7 tabelas de metricas), `reports/figures/eda/*.png` (7+ graficos), `reports/eda_summary.txt` (relatorio textual consolidado), `reports/sweetviz_report.html` (dashboard interativo) -- Esses artefatos servem para o cientista de dados tomar decisoes informadas sobre quais features usar, quais tratamentos aplicar, e validar cientificamente que os dados possuem sinal discriminativo para fraude.                                                                                    |
+| 3. Benchmark de Modelos (Opcional)  | `data/processed/X_train.csv`, `y_train.csv` -- Os dados de treino processados sao necessarios porque o benchmark precisa avaliar algoritmos sobre dados comparaveis. Uma amostra estratificada de 50k linhas e extraida para viabilizar a execucao em tempo razoavel sem perder representatividade estatistica.                                                                                                                                                          | `compare_models.py`                                                                                                                     | Executa um torneio entre 8 a 10 algoritmos (LogReg, DecisionTree, RandomForest, GradientBoosting, HistGradientBoosting, ExtraTrees, AdaBoost, XGBoost, e opcionalmente LightGBM e CatBoost) usando validacao cruzada estratificada de 5 folds. O SMOTE e aplicado dentro de cada fold via ImbPipeline para prevenir data leakage. Mede ROC-AUC, Recall, Precision e F1.                           | `reports/data/models_comparison_results.csv` (tabela com medias e desvios de todas as metricas), `reports/model_comparison_report.txt` (relatorio executivo com ranking), `reports/figures/model_comparison_metrics.png` (grafico de barras comparativo) -- Esses artefatos permitem escolher objetivamente qual algoritmo tem melhor potencial antes de investir tempo na otimizacao de hiperparametros.                                                                                                         |
+| 4. Treinamento e Otimizacao         | `data/processed/X_train.csv`, `y_train.csv` -- Os dados de treino sao necessarios para o modelo aprender os padroes de fraude. Cada script de modelo os carrega para construir o pipeline completo (preprocessamento + classificador) e otimizar hiperparametros via busca exaustiva.                                                                                                                                                                                    | `reg_log_model.py`, `decision_tree_model.py`, `random_forest_model.py`, `xgboost_model.py`, `mlp_model.py`, `isolation_forest_model.py` | Cada script cria um pipeline (preprocessor + modelo), executa GridSearchCV com Stratified K-Fold (3 folds) para encontrar os melhores hiperparametros, retreina o modelo vencedor no dataset completo (quando aplicavel), e executa Threshold Tuning que varre a curva Precision-Recall para encontrar o limiar de decisao que maximiza o F1-Score.                                               | `models/{nome}_best_model.pkl` (modelo serializado pronto para producao), `models/model_{nome}_{timestamp}.pkl` (copia versionada para historico), `models/{nome}_threshold.txt` (threshold otimizado), `models/{nome}_best_model_params.txt` (hiperparametros vencedores), `reports/experiments_log.json` (registro do experimento) -- Cada artefato cumpre um papel: o PKL e o modelo reutilizavel, o threshold define o ponto de operacao, e o JSON garante rastreabilidade completa de todos os experimentos. |
+| 5. Avaliacao Final                  | `data/processed/X_test.csv`, `y_test.csv` (dados que o modelo nunca viu) e `models/{nome}_best_model.pkl` (modelo treinado) -- O blind test set e essencial porque simula dados reais de producao. Usar dados de treino para avaliar geraria metricas artificialmente infladas (overfitting). O modelo e carregado serializado para simular exatamente o que aconteceria em producao.                                                                                    | `visualize.py`                                                                                                                          | Carrega o modelo treinado e os dados de teste, gera predicoes de classe e probabilidade, calcula metricas finais (ROC-AUC, Precision, Recall, F1), plota a Matriz de Confusao (visualiza falsos positivos e negativos), a Curva ROC (capacidade de discriminacao) e o grafico de importancia de features (explicabilidade). Atualiza o log de experimentos com as metricas reais.                 | `reports/figures/confusion_matrix_{nome}.png`, `reports/figures/roc_curve_{nome}.png`, `reports/figures/feature_importance_coefficients.png` (se modelo linear) -- Graficos essenciais para validar se o modelo esta pronto para producao e comunicar resultados para stakeholders. O `experiments_log.json` e atualizado com metricas reais de teste, fechando o ciclo de rastreabilidade.                                                                                                                       |
+| 6. Simulacao de Producao (Opcional) | Modelos balanceados `models/trainers/*_best_model.pkl` de 3 arquiteturas diferentes (XGBoost, LightGBM, MLP) + limiares otimizados + Conjunto Real `data/processed/X_test.csv` -- O Simulador simula o ambiente Real-Time de banco: a cada milissegundo as features batem no comitê de inferência e a decisão majoritária é tomada. O gabarito (y_test) e usado apenas para mostrar se o comitê acertou e quantificar retorno e atrito financeiro gerado para o cliente. | `predict_ensemble.py`, `simulate_production.py`                                                                                         | Recebe as transações como streaming de micro-serviço e orquestra a Ingestão no Comitê de 3 modelos de ML. Se `Fraud_Votes >= 2`: BLOQUEIO. Se `Fraud_Votes == 1` mas o votante for o _Champion de Negocio_ (LightGBM): CAI PARA REVISÃO MANUAL devido ao altíssimo risco estatístico. Qualquer outra coisa é aprovada para não gerar atrito.                                                      | Saida Dashboard Console interativa com emoji para rastreio transacional unitário da tomada de decisão dos modelos. Finaliza salvando na persistência física o artefato executivo `reports/simulation_summary.txt`, que resume todas as TN, TP, Falsos positivos/negativos e traduz o lucro evitado em $$ vs atrito operacional da operação global.                                                                                                                                                                |
 
 ## 2.4 Separacao de Camadas
 
@@ -494,27 +494,23 @@ fraud-sentinel/
 |   |
 |   |-- models/
 |   |   |-- __init__.py
-|   |   |-- reg_log_model.py       # Treinamento Logistic Regression
-|   |   |-- decision_tree_model.py # Treinamento Decision Tree
-|   |   |-- random_forest_model.py # Treinamento Random Forest
-|   |   |-- xgboost_model.py       # Treinamento XGBoost
-|   |   |-- mlp_model.py           # Treinamento MLP (Rede Neural)
-|   |   |-- isolation_forest_model.py # Treinamento Isolation Forest
 |   |   |-- compare_models.py      # Benchmark comparativo de algoritmos
-|   |   |-- predict_model.py       # Simulacao de inferencia em producao
 |   |   |-- force_precision.py     # Ajuste fino de threshold por Precision-alvo
+|   |   |-- threshold_utils.py     # Utilitarios anti-leakage para Thresholds
+|   |   |-- trainers/              # Submodulo de Algoritmos Otimizados
+|   |       |-- reg_log_model.py       # Treinamento Logistic Regression
+|   |       |-- decision_tree_model.py # Treinamento Decision Tree
+|   |       |-- random_forest_model.py # Treinamento Random Forest
+|   |       |-- xgboost_model.py       # Treinamento XGBoost
+|   |       |-- mlp_model.py           # Treinamento MLP (Rede Neural)
+|   |       |-- isolation_forest_model.py # Treinamento Isolation Forest
+|   |       |-- lightgbm_model.py      # Treinamento LightGBM (Campeao de Precisao)
 |   |
-|   |-- visualization/
-|       |-- __init__.py
-|       |-- generate_eda_report.py # EDA automatizada completa
-|       |-- visualize.py          # Avaliacao final com graficos
-|
-|-- data/
-|   |-- raw/                   # Dataset bruto (Base.csv) -- nao versionado
-|   |-- processed/             # Artefatos processados (X_train, X_test, etc.)
-|   |-- external/              # Dados externos (reservado)
-|
-|-- models/                    # Modelos serializados (.pkl) e parametros (.txt)
+|   |-- serving/
+|   |   |-- __init__.py
+|   |   |-- predict_ensemble.py    # Motor de Inferencia MLOps (Comite de Votos)
+|   |   |-- simulate_production.py # Simulador CLI de Producao (Streaming Console)
+|   |   |-- predict_model.py       # Predicao single-model legado
 |
 |-- reports/
 |   |-- data/                  # CSVs de metricas (qualidade, correlacao, MI, etc.)
@@ -523,6 +519,7 @@ fraud-sentinel/
 |   |-- model_comparison_report.txt # Relatorio do benchmark
 |   |-- experiments_log.json   # Historico unificado de todos os experimentos
 |   |-- sweetviz_report.html   # Dashboard interativo HTML
+|   |-- simulation_summary.txt # Relatorio executivo financeiro (ROI) do Emsemble
 |
 |-- tests/                     # Stubs de testes (nao implementados)
 |
@@ -620,7 +617,7 @@ O pipeline foi reestruturado com base nos insights da Analise Exploratoria (EDA)
 
 Decisao tecnica: O `EDAFeatureEngineer` e um `BaseEstimator` do scikit-learn, sendo serializado junto com o modelo via `joblib.dump()`. Isso garante que as mesmas transformacoes sejam aplicadas automaticamente em treino, validacao cruzada e inferencia.
 
-### src/models/reg_log_model.py -- Logistic Regression
+### src/models/trainers/reg_log_model.py -- Logistic Regression
 
 | Atributo                           | Descricao                                                                                        |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------ |
@@ -630,7 +627,7 @@ Decisao tecnica: O `EDAFeatureEngineer` e um `BaseEstimator` do scikit-learn, se
 | **Otimizacao**                     | Amostra estratificada de 100k linhas para GridSearch; retreino final com dataset completo        |
 | **Saidas**                         | `logreg_best_model.pkl`, `logreg_threshold.txt`, `best_model_params.txt`, `experiments_log.json` |
 
-### src/models/decision_tree_model.py -- Decision Tree
+### src/models/trainers/decision_tree_model.py -- Decision Tree
 
 | Atributo             | Descricao                                                                                 |
 | -------------------- | ----------------------------------------------------------------------------------------- |
@@ -638,7 +635,7 @@ Decisao tecnica: O `EDAFeatureEngineer` e um `BaseEstimator` do scikit-learn, se
 | **Grid Search**      | `max_depth`: [5, 10, None]; `min_samples_split`: [2, 5]; `criterion`: ['gini', 'entropy'] |
 | **Saidas**           | `dt_best_model.pkl`, `dt_threshold.txt`, `dt_best_model_params.txt`                       |
 
-### src/models/random_forest_model.py -- Random Forest
+### src/models/trainers/random_forest_model.py -- Random Forest
 
 | Atributo             | Descricao                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------ |
@@ -647,7 +644,7 @@ Decisao tecnica: O `EDAFeatureEngineer` e um `BaseEstimator` do scikit-learn, se
 | **Nota**             | RF usa `n_jobs=-1` internamente; GridSearch usa `n_jobs=1` para evitar conflito      |
 | **Saidas**           | `rf_best_model.pkl`, `rf_threshold.txt`, `rf_best_model_params.txt`                  |
 
-### src/models/xgboost_model.py -- XGBoost
+### src/models/trainers/xgboost_model.py -- XGBoost
 
 | Atributo             | Descricao                                                                     |
 | -------------------- | ----------------------------------------------------------------------------- |
@@ -657,7 +654,7 @@ Decisao tecnica: O `EDAFeatureEngineer` e um `BaseEstimator` do scikit-learn, se
 | **Otimizacao**       | Amostra estratificada de 100k para GridSearch; retreino no dataset completo   |
 | **Saidas**           | `xgb_best_model.pkl`, `xgb_threshold.txt`, `xgb_best_model_params.txt`        |
 
-### src/models/mlp_model.py -- MLP Neural Network
+### src/models/trainers/mlp_model.py -- MLP Neural Network
 
 | Atributo             | Descricao                                                                                                                                          |
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -666,7 +663,7 @@ Decisao tecnica: O `EDAFeatureEngineer` e um `BaseEstimator` do scikit-learn, se
 | **Nota**             | Usa `early_stopping=True` com 10% de validacao interna                                                                                             |
 | **Saidas**           | `mlp_best_model.pkl`, `mlp_threshold.txt`                                                                                                          |
 
-### src/models/isolation_forest_model.py -- Isolation Forest
+### src/models/trainers/isolation_forest_model.py -- Isolation Forest
 
 | Atributo             | Descricao                                                                                                       |
 | -------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -688,7 +685,7 @@ A classe `IForestWrapper` inverte o score de anomalia (`-decision_function`), no
 | **Metricas**         | ROC-AUC, Recall, Precision, F1-Score                                                                                                                |
 | **Saidas**           | `models_comparison_results.csv`, `model_comparison_report.txt`, `model_comparison_metrics.png`                                                      |
 
-### src/models/predict_model.py -- Simulacao de Producao
+### src/serving/simulate_production.py -- Simulacao de Producao
 
 | Atributo                     | Descricao                                                                                    |
 | ---------------------------- | -------------------------------------------------------------------------------------------- |
@@ -775,11 +772,13 @@ A classe `IForestWrapper` inverte o score de anomalia (`-decision_function`), no
         Atualiza experiments_log.json
     |
     v
-[predict_sample] (se --predict ativo)
-    Le modelo.pkl e threshold.txt
-    Sorteia transacoes do X_test
-    Aplica motor de decisao (BLOQUEIO/REVISAO/APROVADO)
-    Imprime resultado detalhado
+[simulate_production] (se --predict ativo)
+    Inicia Comite Ensemble (predict_ensemble.py)
+    Le os modelos XGB, MLP, LGBM e seus thresholds
+    Sorteia batch de transacoes do X_test (embaralhado)
+    Aplica motor Voting com Veto Financeiro
+    Imprime feed visual da previsao no console
+    Computa e Salva simulation_summary.txt (Relatorio em $)
 ```
 
 ## 4.2 Fluxo de Treinamento de Modelo (Generico)
@@ -805,20 +804,21 @@ train_*():
    17. Appenda experiment em experiments_log.json
 ```
 
-## 4.3 Fluxo de Inferencia (Predicao)
+## 4.3 Fluxo de Inferencia (Predicao com Ensemble)
 
 ```
-predict_sample(model_name, n_samples):
-    1. model = joblib.load("models/{model_name}_best_model.pkl")
-    2. threshold = float(open("{model_name}_threshold.txt").read())
-    3. X_test, y_test = carregar dados de teste
-    4. Seleciona amostra balanceada (50% fraude, 50% legit)
-    5. Para cada transacao:
-       a. proba = model.predict_proba(transacao)[0,1]
-       b. Se proba > threshold:       BLOQUEIO
-          Se proba > threshold * 0.8: REVISAO MANUAL
-          Senao:                       APROVADO
-       c. Compara com gabarito (y_test)
+simulate_production() -> predict_ensemble() :
+    1. predictor = FraudEnsemblePredictor() carrega modelos .pkl e threshold.txt (ex: LightGBM, XGBoost, MLP)
+    2. X_test, y_test são carregados e embaralhados.
+    3. Para cada transacao fornecida em streaming:
+       a. Calcula proba para os 3 modelos e computa contra os seus 3 thresholds otimizados.
+       b. Majority Vote Logic:
+          - Se Fraud_Votes >= Majority_Threshold: BLOQUEIO
+          - Se Fraud_Votes == 1 AND Votante == 'LightGBM': REVISÃO MANUAL
+          - Senao: APROVADO
+    4. Atualiza os TPs, FPs, TNs e FNs em Real Time.
+    5. Imprime resultado consolidado visual Terminal CLI.
+    6. Quando finalizado, computa ROI e Atrito -> reports/simulation_summary.txt
 ```
 
 ## 4.4 Fluxo de Tratamento de Erros
@@ -1058,7 +1058,7 @@ Cada treinamento appenda um registro contendo:
 
 ## 11.3 Diagnostico de Problemas
 
-1. **Modelo nao encontrado**: Verificar se `main.py` foi executado antes de `predict_model.py`
+1. **Modelo nao encontrado**: Verificar se `main.py` foi executado antes de `simulate_production.py`
 2. **Memoria insuficiente**: Reduzir `SAMPLE_SIZE` nos modelos ou usar `--models` para treinar menos modelos
 3. **Threshold nao encontrado**: O sistema faz fallback para 0.5 com warning
 
@@ -1133,7 +1133,7 @@ Cada treinamento appenda um registro contendo:
 
 1. **Extrair logica de persistencia de experimentos** para um modulo `experiment_tracker.py`
 2. **Centralizar configuracao de modelos** em um unico YAML/JSON em vez de dicionarios por arquivo
-3. **Implementar SHAP/LIME** para explicabilidade (placeholder existe em `predict_model.py`)
+3. **Implementar SHAP/LIME** para explicabilidade (placeholder existe em `simulate_production.py`)
 
 ---
 

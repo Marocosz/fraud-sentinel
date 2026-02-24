@@ -35,14 +35,14 @@ try:
     from src.data.make_dataset import load_and_split_data
     from src.visualization.generate_eda_report import EDAReporter
     from src.models.compare_models import compare_algorithms
-    from src.models.reg_log_model import train_logistic_regression
-    from src.models.random_forest_model import train_random_forest
-    from src.models.xgboost_model import train_xgboost
-    from src.models.decision_tree_model import train_decision_tree
-    from src.models.mlp_model import train_mlp
-    from src.models.isolation_forest_model import train_isolation_forest
+    from src.models.trainers.reg_log_model import train_logistic_regression
+    from src.models.trainers.random_forest_model import train_random_forest
+    from src.models.trainers.xgboost_model import train_xgboost
+    from src.models.trainers.decision_tree_model import train_decision_tree
+    from src.models.trainers.mlp_model import train_mlp
+    from src.models.trainers.isolation_forest_model import train_isolation_forest
     from src.visualization.visualize import evaluate
-    from src.models.predict_model import predict_sample
+    from src.serving.predict_model import predict_sample
 except ImportError as e:
     print(f"❌ ERRO CRITICO DE IMPORTACAO: {e}")
     print("Verifique se todos os arquivos estao nas pastas corretas dentro de 'src/'.")
@@ -50,13 +50,13 @@ except ImportError as e:
 
 # Imports opcionais (modelos que podem nao estar disponiveis)
 try:
-    from src.models.lightgbm_model import train_lightgbm
+    from src.models.trainers.lightgbm_model import train_lightgbm
     HAS_LIGHTGBM = True
 except ImportError:
     HAS_LIGHTGBM = False
 
 try:
-    from src.models.stacking_model import train_stacking
+    from src.models.trainers.stacking_model import train_stacking
     HAS_STACKING = True
 except ImportError:
     HAS_STACKING = False

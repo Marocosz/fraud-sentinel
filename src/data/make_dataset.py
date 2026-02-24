@@ -101,9 +101,6 @@ def load_and_split_data():
         else:
             raise ValueError(f"CRÍTICO: Coluna alvo '{TARGET_COL}' não encontrada no dataset.")
 
-    # Otimização de Memória (Crucial para datasets grandes de fraude)
-    df = optimize_memory_usage(df)
-
     # Separação X (Features) e y (Target)
     X = df.drop(columns=[TARGET_COL])
     y = df[TARGET_COL]
@@ -118,6 +115,14 @@ def load_and_split_data():
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=TEST_SIZE, stratify=y, random_state=RANDOM_STATE
     )
+    
+    # Otimização de Memória (Após o split para evitar DATA LEAKAGE)
+    # A otimização usa .min() e .max(). Fazer isso antes do split vazaria o 
+    # comportamento do teste no treino.
+    print(f"🧹 Otimizando uso de memória no Treino...")
+    X_train = optimize_memory_usage(X_train)
+    print(f"🧹 Otimizando uso de memória no Teste...")
+    X_test = optimize_memory_usage(X_test)
     
     # Validação Pós-Split
     train_fraud_rate = (y_train.sum() / len(y_train)) * 100
