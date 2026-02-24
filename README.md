@@ -2,14 +2,14 @@
 
 # Visao Geral do Projeto
 
-| Item                     | Descricao                                                                                                                                                                                                                                                                                             |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Nome**                 | Fraud Sentinel                                                                                                                                                                                                                                                                                        |
-| **Objetivo Principal**   | Desenvolver um pipeline completo de Machine Learning para detectar fraudes em aberturas de contas bancarias, priorizando a maximizacao do Recall (capturar o maximo de fraudes) com controle de Precision (minimizar falsos alarmes).                                                                 |
-| **Problema que Resolve** | Fraudes bancarias na abertura de contas causam prejuizos financeiros massivos. O sistema automatiza a triagem de solicitacoes, classificando-as como legitimas ou fraudulentas com base em padroes historicos de comportamento e atributos sociodemograficos.                                         |
-| **Contexto de Uso**      | O sistema opera sobre o dataset Bank Account Fraud (BAF) Suite, publicado no NeurIPS 2022, que simula dados reais de aberturas de conta com rotulagem binaria (0 = legitima, 1 = fraude). A taxa de fraude e extremamente baixa (~1%), exigindo tecnicas especializadas de balanceamento e avaliacao. |
-| **Tarefa de Mineracao**  | Classificacao Binaria Supervisionada (O problema e resolvido testando multiplos algoritmos e os unindo em um comite de Ensemble, mas a _"natureza"_ do problema matematico ainda e de Classificacao Binaria).                                                                                         |
-| **Metodologia**          | CRISP-DM (Cross-Industry Standard Process for Data Mining)                                                                                                                                                                                                                                            |
+| Item                     | Descricao                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Nome**                 | Fraud Sentinel                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Objetivo Principal**   | Desenvolver um pipeline completo de Machine Learning especializado na detecção de **Application Fraud** (Fraude de Abertura de Contas) e **Synthetic Identity Fraud** (Falsidade Ideológica Sintética). Prioriza a maximização do Recall (capturar o máximo de falsários) travado por um rigoroso controle de Precision (minimizar o atrito com bons clientes).                                                      |
+| **Problema que Resolve** | Fraudes na admissão (onboarding digital) causam os maiores vazamentos monetários invisíveis das instituições bancárias (emissão de cartões de limite alto para "fantasmas"). O sistema atua como o **Gatekeeper Automatizado**, cruzando comportamento de sessão digital, biometria comportamental e dados demográficos para classificar solicitações de novas contas como legítimas ou criminosas em milissegundos. |
+| **Contexto de Uso**      | O sistema opera sobre o _Bank Account Fraud (BAF) Suite_ (NeurIPS 2022). Em cenários de onboarding, não lidamos com o escore clássico de "compra de cartão de crédito" com histórico rico. Lidamos com clientes frios (Cold Start) onde a taxa de fraude subjacente é extrema e silenciosa (~1%).                                                                                                                    |
+| **Tarefa de Mineração**  | Classificação Binária Supervisionada (Modelagem resolvida unindo comitês de Ensemble não-lineares baseados em ganho de informação).                                                                                                                                                                                                                                                                                  |
+| **Metodologia**          | CRISP-DM com fortes influências das melhores práticas de Engenharia de Software e MLOps.                                                                                                                                                                                                                                                                                                                             |
 
 ---
 
@@ -37,9 +37,6 @@ python main.py --skip-eda
 
 # Apenas modelos especificos
 python main.py --skip-eda --models xgb,rf
-
-# Com benchmark de algoritmos (demorado)
-python main.py --compare-models
 
 # Com simulacao de producao
 python main.py --predict
@@ -71,10 +68,16 @@ python src/models/force_precision.py 0.20
   - [2.1 Tipo de Arquitetura](#21-tipo-de-arquitetura)
   - [2.2 Diagrama da Arquitetura](#22-diagrama-da-arquitetura)
   - [2.3 Fluxo Macro (Requisicao ate Resposta)](#23-fluxo-macro-requisicao-ate-resposta)
+    - [1. Ingestão de Dados](#1-ingestão-de-dados)
+    - [2. Análise Exploratória (EDA)](#2-análise-exploratória-eda)
+    - [3. Benchmark de Modelos (Opcional)](#3-benchmark-de-modelos-opcional)
+    - [4. Treinamento e Otimização](#4-treinamento-e-otimização)
+    - [5. Avaliação Final](#5-avaliação-final)
+    - [6. Previsão Discreta (Opcional)](#6-previsão-discreta-opcional)
   - [2.4 Separacao de Camadas](#24-separacao-de-camadas)
 - [3. Estrutura de Diretorios](#3-estrutura-de-diretorios)
   - [3.1 Descricao Detalhada de Cada Arquivo](#31-descricao-detalhada-de-cada-arquivo)
-    - [main.py -- Orquestrador Principal](#mainpy----orquestrador-principal)
+    - [main.py - Orquestrador Principal](#mainpy---orquestrador-principal)
     - [src/config.py -- Configuracoes Globais](#srcconfigpy----configuracoes-globais)
     - [src/data/make_dataset.py -- Engenharia de Dados](#srcdatamake_datasetpy----engenharia-de-dados)
     - [src/features/build_features.py -- Pipeline de Features (EDA-Driven)](#srcfeaturesbuild_featurespy----pipeline-de-features-eda-driven)
@@ -84,7 +87,6 @@ python src/models/force_precision.py 0.20
     - [src/models/trainers/xgboost_model.py -- XGBoost](#srcmodelstrainersxgboost_modelpy----xgboost)
     - [src/models/trainers/mlp_model.py -- MLP Neural Network](#srcmodelstrainersmlp_modelpy----mlp-neural-network)
     - [src/models/trainers/isolation_forest_model.py -- Isolation Forest](#srcmodelstrainersisolation_forest_modelpy----isolation-forest)
-    - [src/models/compare_models.py -- Benchmark de Algoritmos](#srcmodelscompare_modelspy----benchmark-de-algoritmos)
     - [src/serving/simulate_production.py -- Simulacao de Producao](#srcservingsimulate_productionpy----simulacao-de-producao)
     - [src/models/force_precision.py -- Ajuste de Precision-Alvo](#srcmodelsforce_precisionpy----ajuste-de-precision-alvo)
     - [src/visualization/generate_eda_report.py -- EDA Automatizada](#srcvisualizationgenerate_eda_reportpy----eda-automatizada)
@@ -340,17 +342,17 @@ O Fraud Sentinel adota uma **arquitetura modular orientada a pipeline**, organiz
 +------------------------------------------------------------------+
          |              |              |              |
          v              v              v              v
-+----------------+ +----------+ +-----------+ +-------------+
-| make_dataset   | | EDA      | | compare   | | train_*     |
-| (Data Eng.)    | | Reporter | | _models   | | _model.py   |
-+----------------+ +----------+ +-----------+ +-------------+
-    |                  |              |              |
-    v                  v              v              v
-+--------+      +-----------+  +-----------+  +------------+
-| data/  |      | reports/  |  | reports/  |  | models/    |
-|processed|     | figures/  |  | data/     |  | *.pkl      |
-| *.csv  |      | *.png     |  | *.csv     |  | *.txt      |
-+--------+      +-----------+  +-----------+  +------------+
++----------------+ +----------+ +-------------+
+| make_dataset   | | EDA      | | train_*     |
+| (Data Eng.)    | | Reporter | | _model.py   |
++----------------+ +----------+ +-------------+
+    |                  |              |
+    v                  v              v
++--------+      +-----------+  +------------+
+| data/  |      | reports/  |  | models/    |
+|processed|     | figures/  |  | *.pkl      |
+| *.csv  |      | *.png     |  | *.txt      |
++--------+      +-----------+  +------------+
                                                     |
                                     +---------------+--------+
                                     v                        v
@@ -385,14 +387,6 @@ O Fraud Sentinel adota uma **arquitetura modular orientada a pipeline**, organiz
   3. Aciona o cálculo estatístico de Mann-Whitney U e o agrupamento condicional `Mutual Information` rankeando a capacidade de previsão de cada variável.
   4. Monta as correlações visuais e cria o HTML Sweetviz.
 - **Saída Gerada:** Tabelas de suporte em `reports/data/*.csv`, Gráficos PNG das variações (em `reports/figures/eda/`), Relatório textual `reports/eda_summary.txt` e o painel dinâmico `reports/sweetviz_report.html`.
-
-### 3. Benchmark de Modelos (Opcional)
-
-- **Arquivo Responsável:** `compare_models.py`
-- **Entrada:** `data/processed/X_train.csv`, `y_train.csv` (Uma extração proporcional rápida de 50 mil linhas para agilizar execuções iterativas).
-- **Descrição da Atividade:**
-  Roda múltiplos algoritmos contra testes cegos em camadas (Stratified K-Fold CV), ativando flags _Cost-Sensitive_ para dar pesos diferentes aos erros, avaliando qual Família de IA perfoma melhor (LogReg, Random Forest, XGBoost etc).
-- **Saída Gerada:** Matriz e ranking tabular subistancializado (`reports/data/models_comparison_results.csv`), sumário de performance `reports/model_comparison_report.txt` e um gráfico PNG das métricas F1/ROC-AUC.
 
 ### 4. Treinamento e Otimização
 
@@ -460,7 +454,7 @@ fraud-sentinel/
 |   |
 |   |-- models/
 |   |   |-- __init__.py
-|   |   |-- compare_models.py      # Benchmark comparativo de algoritmos
+
 |   |   |-- force_precision.py     # Ajuste fino de threshold por Precision-alvo
 |   |   |-- threshold_utils.py     # Utilitarios anti-leakage para Thresholds
 |   |   |-- trainers/              # Submodulo de Algoritmos Otimizados
@@ -498,25 +492,25 @@ fraud-sentinel/
 
 ## 3.1 Descricao Detalhada de Cada Arquivo
 
-### main.py -- Orquestrador Principal
+### main.py - Orquestrador Principal
 
-| Atributo         | Descricao                                                                               |
-| ---------------- | --------------------------------------------------------------------------------------- |
-| **Funcao**       | Orquestra todo o pipeline na ordem correta via CLI (argparse)                           |
-| **Funcoes**      | `reset_project_artifacts()`, `main()`                                                   |
-| **Entradas**     | Argumentos CLI: `--no-reset`, `--skip-eda`, `--compare-models`, `--predict`, `--models` |
-| **Saidas**       | Execucao sequencial de todos os modulos                                                 |
-| **Dependencias** | Todos os modulos em `src/`                                                              |
+| Atributo         | Descricao                                                           |
+| ---------------- | ------------------------------------------------------------------- |
+| **Funcao**       | Orquestra todo o pipeline na ordem correta via CLI (argparse)       |
+| **Funcoes**      | `reset_project_artifacts()`, `main()`                               |
+| **Entradas**     | Argumentos CLI: `--no-reset`, `--skip-eda`, `--predict`, `--models` |
+| **Saidas**       | Execucao sequencial de todos os modulos                             |
+| **Dependencias** | Todos os modulos em `src/`                                          |
 
 Flags disponiveis:
 
-| Flag               | Efeito                                                |
-| ------------------ | ----------------------------------------------------- |
-| `--no-reset`       | Pula a limpeza de artefatos antigos                   |
-| `--skip-eda`       | Pula a analise exploratoria                           |
-| `--compare-models` | Executa o benchmark de algoritmos                     |
-| `--predict`        | Roda simulacao de inferencia ao final                 |
-| `--models`         | Seleciona modelos especificos (ex: `--models xgb,rf`) |
+| Flag         | Efeito                              |
+| ------------ | ----------------------------------- |
+| `--no-reset` | Pula a limpeza de artefatos antigos |
+| `--skip-eda` | Pula a analise exploratoria         |
+
+| `--predict` | Roda simulacao de inferencia ao final |
+| `--models` | Seleciona modelos especificos (ex: `--models xgb,rf`) |
 
 Identificadores de modelos: `logreg`, `dt`, `rf`, `xgb`, `mlp`, `if`.
 
@@ -557,35 +551,39 @@ Fluxo interno:
 
 ### src/features/build_features.py -- Pipeline de Features (EDA-Driven)
 
-| Atributo    | Descricao                                                                                |
-| ----------- | ---------------------------------------------------------------------------------------- |
-| **Classe**  | `EDAFeatureEngineer(BaseEstimator, TransformerMixin)` -- Transformer sklearn customizado |
-| **Funcoes** | `get_preprocessor(X)`, `build_pipeline(X_train, model)`, `process_features()`            |
-| **Entrada** | DataFrame X com features brutas                                                          |
-| **Saida**   | `Pipeline` completo de 3 etapas (EDAFeatureEngineer -> ColumnTransformer -> Modelo)      |
+Este é o coração metodológico da preparação de dados do projeto. O `build_features.py` não é um mero script sequencial solto, mas atua criando estruturas nativas (`BaseEstimator` e `Pipeline` do pacote MLOps scikit-learn), garantindo blindagem contra **Data Leakage** (Vazamento de Dados) e possibilitando que as regras estatísticas de transformação viagem encapsuladas dentro do pacote do modelo em produção (`.pkl`).
 
-O pipeline foi reestruturado com base nos insights da Analise Exploratoria (EDA) e agora possui 3 camadas:
+#### 🛠️ Abstração Teórica (A Defesa contra o Data Leakage)
 
-**Camada 1 -- EDAFeatureEngineer** (transformer customizado):
+O principal erro em sistemas de regressão generalistas é processar toda a base de dados centralizada (Scaling e Imputer) antes de dividir as partições de treino e teste. Se isso ocorre, as médias globais do futuro contaminam a visualização presente dos fold de testes.
+Aqui a arquitetura resolve isso pela raiz. O `Pipeline` embutido compõe a _Imputação_, _Normalização_, e a engenharia de _Outliers_ calculando suas medianas e limites de recortes estritamente dentro da "Tenda de Treinamento" (O `X_train` do Fold atual do GridSearchCV), aplicando essas lógicas aos testes (O `X_test`) apenas por refração histórica, e não mais por composição universal.
 
-| Transformacao            | Detalhe                                                                                                                             | Justificativa (EDA)                                                                       |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Remocao de features      | Remove `device_fraud_count` e `session_length_in_minutes`                                                                           | Variancia zero (MI=0.0001) e MI=0 com Mann-Whitney nao significativo (p=0.163)            |
-| Tratamento de sentinelas | Converte -1 para NaN e cria flags (`has_prev_address`, `has_bank_history`, `has_device_emails`)                                     | Mediana de `prev_address_months_count` = -1 indicava >50% de dados marcados como ausentes |
-| Clipping de outliers     | Clip nos percentis 1%/99% de `proposed_credit_limit`, `intended_balcon_amount`, `bank_branch_count_8w`, `prev_address_months_count` | Features com 15-24% de outliers pelo metodo IQR                                           |
-| Flags de risco           | Cria `is_high_risk_housing`, `is_high_risk_employment`, `is_high_risk_os`, `is_high_risk_payment`, `is_teleapp_source`              | Categorias com 1.5x a 3.4x a taxa media de fraude                                         |
-| Interacao digital        | Cria `digital_risk_score` = `email_is_free` \* `device_distinct_emails_8w`                                                          | Top 3 features por MI Score sao todas de comportamento digital                            |
+#### ⚙️ Arquitetura das 3 Camadas Otimizadas
 
-**Camada 2 -- ColumnTransformer** (preprocessamento):
+O pipeline orgânico foi descartado e um novo foi erguido estritamente com base nos relatórios de descobertas apontados pelo passo da Análise Exploratória (`generate_eda_report.py`):
 
-- Pipeline numerico: `SimpleImputer(median)` -> `RobustScaler()`
-- Pipeline categorico: `SimpleImputer(constant='missing')` -> `OneHotEncoder(handle_unknown='ignore')`
+**Camada 1: Transformador de Negócio Customizado (`EDAFeatureEngineer`)**
+O primeiro estágio obriga os dados tabulares do DataFrame a passar por um funil de classe orientada a objeto manipulando as distorções identificadas:
 
-**Camada 3 -- Modelo** (classificador):
+- **Limpeza Cirúrgica:** Eliminação de ruídos mortos (`device_fraud_count` e `session_length_in_minutes`), variáveis com Teste U de Mann-Whitney irrisório que apenas poluiam os eixos de splits das Árvores.
+- **Resgate do Sinal de Imputação (-1):** O Banco fornecia falsos ruídos numéricos populando os arquivos com o dígito sentinela `-1` quando não tinha a informação correta do cliente. O pipeline quebra isso transformando o valor corrompido em _Not a Number_ e imediatamente ergue uma Flag Booleana (`has_address_history_flag`).
+- **Isolamento em Clipping (Outliers):** Poda de Caudais nos percentis extremos de `1%` e `99%` visando proteger o gradiente descendente de variáveis completamente tóxicas onde 24% da base extrapolavam em anomalia inútil de escopo financeiro gigantesco (`proposed_credit_limit`).
+- **Micro-Segmentação de Alto Risco:** A EDA provou que o usuário Habitacional tag `:BA` acionava a Fraude 3.4x mais que a média populacional. O Pipeline forçou o mapeamento destas e outras bolhas anômalas criando as features indicativas de nicho como as booleanas `is_high_risk_housing` e `is_high_risk_os`.
+- **Super Feature Digital:** Multiplicação dos dois blocos cruzados de maior pontuação do relatório estatístico global de Mutual Information (`email_is_free` correlacionando com IPs em `device_distinct_emails_8w`), gerando por conta própria uma métrica de Força Sintética: O `digital_risk_score`.
 
-- O classificador especifico de cada modelo (LogReg, XGBoost, RF, etc.)
+**Camada 2: ColumnTransformer (Scikit-Learn Preprocessor Engine)**
 
-Decisao tecnica: O `EDAFeatureEngineer` e um `BaseEstimator` do scikit-learn, sendo serializado junto com o modelo via `joblib.dump()`. Isso garante que as mesmas transformacoes sejam aplicadas automaticamente em treino, validacao cruzada e inferencia.
+- **Condutor Numérico:** Inicia a cura de Nulos cravando a `Mediana` (Imune ao repuxo estatístico contido em caudas de renda elásticas dos usuários milionários ou negativados) empurrando o funil logístico para a adequação algoritmica padrão exigida com `RobustScaler()` (Tolerante e seguro).
+- **Condutor Categórico (Texto):** Preechimento semântico dos textos desconhecidos pelo bloco abstrato `'missing'` seguido pela técnica de One-Hot-Encoder em parâmetros estáticos e anti-quebra (Se amanhã chegar na porta do serviço uma "Ocupação Y" não conhecida no dia oficial do treinamento, o OHE irá ignorá-la de forma passiva não quebrando a API da resposta).
+
+**Camada 3: Motor Preditivo Acoplado (Estimator)**
+
+- O Slot (Pass Point) livre em que o maestro do dia acoplará seu algoritmo final (Logistic Regression, LightGBM, XGBoost, Stacking e etc) amarrando o encanamento dos dados para o aprendizado da IA, que só receberá o que sobrar refinado do processo 2.
+
+#### 🚀 Resultados Técnicos e Simplificação Pós-Construção
+
+Todo esse maquinário matemático de tratamento de tabelas se reduz à magia encapsulada unificada. O arquivo gerou o poder das rotinas do pacote serializado: não precisamos mais "salvar tabelas com médias de scalers" apartadas nos repositórios.
+A execução do fit compõe essas 3 etapas orgânicas em um arquivo estático exportado pra Nuvem. O dia que a Simulação de Produção bater na porta e enviar dados, a linha será o simples `modelo.predict(features_recebidas)`. Todo o `fraud-sentinel` em produção trata todo o esgoto do pipeline automaticamente dentro da gaveta escondida desse componente principal!
 
 ### src/models/trainers/reg_log_model.py -- Logistic Regression
 
@@ -644,16 +642,6 @@ Decisao tecnica: O `EDAFeatureEngineer` e um `BaseEstimator` do scikit-learn, se
 | **Saidas**           | `if_best_model.pkl`, `if_threshold.txt`                                                                         |
 
 A classe `IForestWrapper` inverte o score de anomalia (`-decision_function`), normaliza com `MinMaxScaler` para [0,1] e empacota no formato `predict_proba` padrao `(n_samples, 2)`.
-
-### src/models/compare_models.py -- Benchmark de Algoritmos
-
-| Atributo             | Descricao                                                                                                                                           |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Funcao principal** | `compare_algorithms()`                                                                                                                              |
-| **Competidores**     | LogReg, DecisionTree, RandomForest, GradientBoosting, HistGradientBoosting, ExtraTrees, AdaBoost, XGBoost, LightGBM (opcional), CatBoost (opcional) |
-| **Metodologia**      | Stratified 5-Fold CV com pipeline focado em Cost-Sensitive Learning (sem SMOTE)                                                                     |
-| **Metricas**         | ROC-AUC, Recall, Precision, F1-Score                                                                                                                |
-| **Saidas**           | `models_comparison_results.csv`, `model_comparison_report.txt`, `model_comparison_metrics.png`                                                      |
 
 ### src/serving/simulate_production.py -- Simulacao de Producao
 
@@ -716,13 +704,6 @@ A classe `IForestWrapper` inverte o score de anomalia (`-decision_function`), no
     Salva em reports/
     |
     v
-[compare_algorithms] (se --compare-models ativo)
-    Le data/processed/X_train.csv, y_train.csv
-    Amostra 50k linhas estratificadas
-    Roda 5-Fold CV para algoritmos usando Cost-Sensitive Learning
-    Gera ranking e graficos
-    |
-    v
 [Para cada modelo selecionado (--models)]:
     [train_*()]
         Le X_train.csv, y_train.csv
@@ -755,34 +736,43 @@ A classe `IForestWrapper` inverte o score de anomalia (`-decision_function`), no
 
 ```
 train_*():
-    [BaseTrainer - Classe Abstrata Orquestradora]
-    1. run_id = timestamp atual
-    2. _load_data(): Carrega X_train e y_train do PKL e ravel().
-    3. pipeline = build_pipeline(X_train, clf)
-    4. _get_sample(): Amostragem rigorosa (`stratify=y`) para Busca Rápida de Hiperparâmetros.
-    5. compute_sample_weight(): Aplica balanceamento de Pesos Cost-Sensitive para suprir Desbalanceamento.
-    6. GridSearchCV / RandomizedSearchCV configurado conforme `config.py` injetado pelo modelo.
-    7. Retreina melhor estimador em Dataset Completo.
-    8. threshold_utils.compute_optimal_threshold() -> argmax(F1).
-    9. joblib.dump do Modelo Campeão e Versionado `model_*_{run_id}.pkl`.
-   10. Appenda log de métricas da validação cruzada no `experiments_log.json`.
+    [BaseTrainer - Arquitetura OOP Orquestradora]
+    1. run_id = timestamp atual (Amarrando versionamento único).
+    2. _load_data(): Carrega X_train e y_train do cache PKL sem onerar o Data Warehouse.
+    3. pipeline = build_pipeline(X_train, clf) - Injeta a IA crua (ex: XGBoost) na ponta do Funil Seguro de Transformação.
+    4. _get_sample(): Subamostragem tática (ex: 100k linhas `stratify=y`) contida no config. Salva tempo excessivo de treino na CPU/GPU durante o tuning iterativo de centenas de possibilidades.
+    5. compute_sample_weight(): Lógica de Cost-Sensitive Learning nativa. Multiplica a dor do erro quando o algoritmo erra uma Fraude (Classe 1) com base no extremo desbalanceamento do Target. Otimiza O gradiente.
+    6. Search Automático: Identifica reflexivamente pelo config do modelo se ele deverá rodar GridSearchCV (Força Bruta/Deterministico) ou RandomizedSearchCV (Exploração Estocástica).
+    7. Retreino Absoluto: Encontra a hiper-receita e aplica contra os 800.000 clientes da base.
+    8. Threshold Tuning Analítico -> computa matriz ROC/PRC inteira para buscar o ponto máximo do teste F1. Guarda arquivado fisicamente (`threshold.txt`).
+    9. joblib.dump cria a serialização imutável Campeã e Versionada `model_*_{run_id}.pkl`.
+   10. Appenda log de métricas da curadoria final sem destruir o histórico JSON.
 ```
 
 ## 4.3 Fluxo de Inferencia (Predicao com Ensemble)
 
 ```
-simulate_production() -> predict_ensemble() :
-    1. predictor = FraudEnsemblePredictor() carrega modelos .pkl e threshold.txt (ex: LightGBM, XGBoost, MLP)
-    2. X_test, y_test são carregados e embaralhados.
-    3. Para cada transacao fornecida em streaming:
-       a. Calcula proba para os 3 modelos e computa contra os seus 3 thresholds otimizados.
-       b. Majority Vote Logic (Smart Ensemble c/ Veto Especial):
-          - Se Fraud_Votes >= Majority_Threshold (ex: 2/3): BLOQUEIO (Alta Confiança)
-          - Se Fraud_Votes > 0 E Votante Unico == 'LightGBM': REVISÃO MANUAL (Veto de Precisão)
-          - Senao: APROVADO (Nivel de Risco Assumido)
-    4. Atualiza os TPs, FPs, TNs e FNs em Real Time.
-    5. Imprime resultado consolidado visual Terminal CLI.
-    6. Quando finalizado, computa ROI e Atrito -> reports/simulation_summary.txt
+[simulate_production() -> acionando: FraudEnsemblePredictor]
+
+    A Arquitetura simula um Streaming assíncrono do dia a dia da instituição bancária real recebendo requisições. O diferencial não é a precisão do algoritmo isolado, mas sim a Regra de Negócio imposta ao Comitê.
+
+    1. O Motor inicia importando o Campeão de Precision (LightGBM), o de Equilíbrio (XGBoost) e o de Sensibilidade (MLP Neural Networks). Importa também o `threshold` unitário de cada um, evitando hardcodes limitadores.
+    2. Lê a base de blind test (Clientes que nunca viram o banco), injeta Fraudes de propósito em amostragem densa para viabilizar simulações ricas.
+    3. Para cada Batch Vectorizado nas CPUs:
+       a. O DataFrame roda no `predict_proba()` universal coletando os 3 scores matemáticos de fraude das 3 IAs independentemente.
+
+       b. *Smart Majority Vote com Veto Especial de Proteção*:
+          - 🔴 Se Votos Sombrios >= 2/3: APROVAÇÃO NEGADA (Confiança Inter-Modelos alta).
+
+          - 🟡 Se Votos Sombrios == 1:
+             A Regra checa silenciosamente a assinatura de quem votou. Se a denúncia solitária veio do **LightGBM (Campeão de Erro Zero)**, ele ativa seu card de "Veto Especial".
+             Decisão: REVISÃO MANUAL DE MESA (O banco retém o fluxo de abertura da conta, alertando o fraud analyst).
+
+          - 🟢 Apenas em Demais Hipóteses (0 Votos ou 1 Voto provindo de Rede Neural Instável):
+             Decisão: SCORE APROVADO. Abertura do Onboarding flui normal. (Nível de Risco Financeiro Absolvido Operacionalmente).
+
+    4. O Fechamento gera um feed estilo "Matrix/Hacker" detalhando o julgamento micro na CLI.
+    5. O Motor Matemático de Negócios entra varrendo o Log, aplicando o Ticket Médio Bancário base para emitir as métricas reais que C-Levels procuram: "Dinheiro Salvo" ($) vs "Fricção Ocasionada". Relatório é impresso via `simulation_summary.txt`.
 ```
 
 ## 4.4 Fluxo de Tratamento de Erros
@@ -1012,13 +1002,29 @@ Cada treinamento appenda um registro contendo:
 
 ## 13.1 Padroes de Projeto
 
-| Padrao              | Aplicacao                                                                                         |
-| ------------------- | ------------------------------------------------------------------------------------------------- |
-| **Pipeline**        | Encadeamento de transformacoes via `sklearn.pipeline.Pipeline`                                    |
-| **Strategy**        | Cada `*_model.py` implementa a mesma interface de treinamento com algoritmos diferentes           |
-| **Adapter**         | `IForestWrapper` adapta a interface do Isolation Forest para compatibilidade com `predict_proba`  |
+| Padrao       | Aplicacao                                                                                         |
+| ------------ | ------------------------------------------------------------------------------------------------- |
+| **Pipeline** | Encadeamento de transformacoes via `sklearn.pipeline.Pipeline`                                    |
+| **Strategy** | Cada `*_model.py` implementa a mesma interface de treinamento com algoritmos diferentes           |
+| **Adapter**  | `IForestWrapper` adapta a interface do Isolation Forest para compatibilidade com `predict_proba`  |
+| **Facade**   | Orquestrador `BaseTrainer` simplificando e uniformizando o roteiro de MLOps por debaixo dos panos |
+
+## 13.2 Blindagem Científica (O Porquê das Escolhas)
+
+### Por que Threshold Tuning Funciona Melhor que o Corte em 0.5?
+
+O Default dos algoritmos de IA é cortar probabilidades acima de `50%` (0.5). Isso pressupõe que cometer um Erro Falso-Positivo tem a mesma dor estrutural que um Falso-Negativo. No combate à **Fraude de Abertura de Contas (Synthetic Identity)**, deixar passar um atacante experiente causa rombos creditícios enormes e silenciosos, enquanto bloquear um cliente bom no Onboarding causa apenas perda momentânea de conversão.
+A otimização de matriz na Curva `Precision-Recall` força cada algoritmo matematicamente a encontrar o limite decimal cirúrgico (`0.06`, `0.11`) onde os Ganhos da captura de Fraude (Recall extremo) se equilibram da melhor maneira estatística possível suportada pelo modelo na precisão dos acertos.
+
+### Por que GBMs (XGBoost/LightGBM) e não Redes Neurais Profundas (Deep Learning)?
+
+O dataset processado pela Machine Learning é estritamente **Tabular e Heterogêneo**. Diferente do processamento de imagens (Visões Espaciais Convulacionais - CNNs), as informações categóricas misturadas com numéricas tortas não possuem relações espaciais puras. As _Decision Trees Gradient Boost Machines_ dividem perfeitamente os limiares de espaço de features onde uma Idade de cliente associada a um Sistema Operacional não-padrão disparam gatilhos binários altamente destrutivos, um mapeamento não-linear denso que Redes Neurais simples (MLP) demandam milhares de _Hidden Layers_ caríssimos para aproximar com pouca eficiência (Explosion Gradient problem comum em anomalias de 1%).
+
+### Por que o Isolation Forest não é o Protagonista?
+
+Porque Fraude Estrutural **não é estritamente uma anomalia matemática extrema**. O _Isolation Forest_ procura por caminhos mínimos para isolar bolhas distantes do Cluster massivo esférico da massa padrão em uma floresta geométrica sem rótulos. Fraudadores de Onboarding muitas vezes mimetizam ativamente o comportamento médio intencionalmente, mesclando-se na densidade de dados comuns, não gerando um comportamento bizarramente limpo. A IA supervisionada, recebendo recompensas punitivas de _Cost-Sensitive_, consegue identificar as minúcias não-geométricas vitais para deter as gangues.
 | **Template Method** | Todos os modelos seguem o mesmo esqueleto: carga -> pipeline -> grid -> threshold -> persistencia |
-| **Registry**        | `experiments_log.json` funciona como registro central de experimentos                             |
+| **Registry** | `experiments_log.json` funciona como registro central de experimentos |
 
 ## 13.2 Conceitos de ML Aplicados
 
