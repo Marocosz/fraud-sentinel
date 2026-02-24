@@ -77,17 +77,17 @@ python src/models/force_precision.py 0.20
 - [3. Estrutura de Diretorios](#3-estrutura-de-diretorios)
   - [3.1 Descricao Detalhada de Cada Arquivo](#31-descricao-detalhada-de-cada-arquivo)
     - [main.py - Orquestrador Principal](#mainpy---orquestrador-principal)
-    - [src/data/make_dataset.py - Engenharia de Dados](#srcdatamake_datasetpy---engenharia-de-dados)
-    - [src/features/build_features.py - Pipeline de Features (EDA-Driven)](#srcfeaturesbuild_featurespy---pipeline-de-features-eda-driven)
-    - [src/models/trainers/reg_log_model.py - Logistic Regression](#srcmodelstrainersreg_log_modelpy---logistic-regression)
-    - [src/models/trainers/decision_tree_model.py - Decision Tree](#srcmodelstrainersdecision_tree_modelpy---decision-tree)
-    - [src/models/trainers/random_forest_model.py - Random Forest](#srcmodelstrainersrandom_forest_modelpy---random-forest)
-    - [src/models/trainers/xgboost_model.py - XGBoost](#srcmodelstrainersxgboost_modelpy---xgboost)
-    - [src/models/trainers/mlp_model.py - MLP Neural Network](#srcmodelstrainersmlp_modelpy---mlp-neural-network)
-    - [src/models/trainers/isolation_forest_model.py -- Isolation Forest](#srcmodelstrainersisolation_forest_modelpy----isolation-forest)
-    - [src/serving/simulate_production.py -- Simulacao de Producao](#srcservingsimulate_productionpy----simulacao-de-producao)
-    - [src/models/force_precision.py -- Ajuste de Precision-Alvo](#srcmodelsforce_precisionpy----ajuste-de-precision-alvo)
-    - [src/visualization/generate_eda_report.py -- EDA Automatizada](#srcvisualizationgenerate_eda_reportpy----eda-automatizada)
+    - [src/data/make\_dataset.py - Engenharia de Dados](#srcdatamake_datasetpy---engenharia-de-dados)
+    - [src/features/build\_features.py - Pipeline de Features (EDA-Driven)](#srcfeaturesbuild_featurespy---pipeline-de-features-eda-driven)
+    - [src/models/trainers/reg\_log\_model.py - Logistic Regression](#srcmodelstrainersreg_log_modelpy---logistic-regression)
+    - [src/models/trainers/decision\_tree\_model.py - Decision Tree](#srcmodelstrainersdecision_tree_modelpy---decision-tree)
+    - [src/models/trainers/random\_forest\_model.py - Random Forest](#srcmodelstrainersrandom_forest_modelpy---random-forest)
+    - [src/models/trainers/xgboost\_model.py - XGBoost](#srcmodelstrainersxgboost_modelpy---xgboost)
+    - [src/models/trainers/mlp\_model.py - MLP Neural Network](#srcmodelstrainersmlp_modelpy---mlp-neural-network)
+    - [src/models/trainers/isolation\_forest\_model.py -- Isolation Forest](#srcmodelstrainersisolation_forest_modelpy----isolation-forest)
+    - [src/serving/simulate\_production.py -- Simulacao de Producao](#srcservingsimulate_productionpy----simulacao-de-producao)
+    - [src/models/force\_precision.py -- Ajuste de Precision-Alvo](#srcmodelsforce_precisionpy----ajuste-de-precision-alvo)
+    - [src/visualization/generate\_eda\_report.py -- EDA Automatizada](#srcvisualizationgenerate_eda_reportpy----eda-automatizada)
     - [src/visualization/visualize.py -- Avaliacao Final](#srcvisualizationvisualizepy----avaliacao-final)
 - [4. Fluxos Detalhados](#4-fluxos-detalhados)
   - [4.1 Fluxo Principal do Sistema](#41-fluxo-principal-do-sistema)
@@ -114,15 +114,32 @@ python src/models/force_precision.py 0.20
 - [8. Configuracoes e Variaveis de Ambiente](#8-configuracoes-e-variaveis-de-ambiente)
 - [9. Estrategia de Logs e Monitoramento](#9-estrategia-de-logs-e-monitoramento)
   - [9.1 Logs em Console](#91-logs-em-console)
-  - [9.2 Log Persistido (experiments_log.json)](#92-log-persistido-experiments_logjson)
+  - [9.2 Log Persistido (experiments\_log.json)](#92-log-persistido-experiments_logjson)
   - [9.3 Diagnostico de Problemas](#93-diagnostico-de-problemas)
 - [10. Teoria Tecnica Envolvida](#10-teoria-tecnica-envolvida)
-  - [10.1 Padroes de Projeto](#101-padroes-de-projeto)
-  - [10.2 Conceitos de ML Aplicados](#102-conceitos-de-ml-aplicados)
-  - [10.3 Conceitos Estatisticos](#103-conceitos-estatisticos)
+  - [10.1 Padrões de Projeto (Engenharia de Software em MLOps)](#101-padrões-de-projeto-engenharia-de-software-em-mlops)
+  - [10.2 A Teoria dos Modelos: Por que Foram Selecionados e Como Operam](#102-a-teoria-dos-modelos-por-que-foram-selecionados-e-como-operam)
+    - [1. Regressão Logística (Logistic Regression)](#1-regressão-logística-logistic-regression)
+    - [2. Árvores de Decisão \& Random Forest (Ensambles de Bagging)](#2-árvores-de-decisão--random-forest-ensambles-de-bagging)
+    - [3. Máquinas de Vetores de Gradiente (Gradient Boosting - XGBoost e LightGBM)](#3-máquinas-de-vetores-de-gradiente-gradient-boosting---xgboost-e-lightgbm)
+    - [4. Redes Neurais Profundas (Multilayer Perceptron - MLP)](#4-redes-neurais-profundas-multilayer-perceptron---mlp)
+    - [5. Isolation Forest (Não-Supervisionado / Geométrico)](#5-isolation-forest-não-supervisionado--geométrico)
+  - [10.3 O Enfrentamento do Desbalanceamento Extremo Sistemático](#103-o-enfrentamento-do-desbalanceamento-extremo-sistemático)
+  - [10.4 Threshold Tuning vs Corte Euclidiano Clássico](#104-threshold-tuning-vs-corte-euclidiano-clássico)
+  - [10.5 O Porquê da Estatística não-Paramétrica Adotada na EDA](#105-o-porquê-da-estatística-não-paramétrica-adotada-na-eda)
 - [11. Melhorias Futuras](#11-melhorias-futuras)
   - [11.1 Melhorias de Performance](#111-melhorias-de-performance)
   - [11.2 Refatoracoes Recomendadas](#112-refatoracoes-recomendadas)
+- [12. Análise Crítica e Explicação dos Experimentos](#12-análise-crítica-e-explicação-dos-experimentos)
+  - [12.1 Os Casos de Fracasso (Exemplos Negativos)](#121-os-casos-de-fracasso-exemplos-negativos)
+    - [12.1.1 Árvore de Decisão Simples (`DecisionTreeClassifier`)](#1211-árvore-de-decisão-simples-decisiontreeclassifier)
+    - [12.1.2 Floresta de Isolamento (`IForestWrapper` / Isolation Forest)](#1212-floresta-de-isolamento-iforestwrapper--isolation-forest)
+  - [12.2. A Transição e o Progresso](#122-a-transição-e-o-progresso)
+    - [12.2.1 Floresta Aleatória (`RandomForestClassifier`)](#1221-floresta-aleatória-randomforestclassifier)
+    - [12.2.2 Regressão Logística (`LogisticRegression`)](#1222-regressão-logística-logisticregression)
+  - [12.3 A Vanguarda Numérica (Exemplos Positivos)](#123-a-vanguarda-numérica-exemplos-positivos)
+    - [12.3.1 Redes Neurais Cíbridas (`MLPClassifier` - Perceptron Multicamadas)](#1231-redes-neurais-cíbridas-mlpclassifier---perceptron-multicamadas)
+    - [12.3.2 Máquinas de Gradient Boosting (`XGBClassifier` \& `LGBMClassifier`)](#1232-máquinas-de-gradient-boosting-xgbclassifier--lgbmclassifier)
 
 # 1 Resultados da Analise Exploratoria (EDA)
 
@@ -1016,67 +1033,106 @@ Nenhuma feature importante (Ex: Idades ou Velocidade do Onboarding 24h) obedeceu
 O arquivo `reports/experiments_log.json` consolida os resultados quantitativos de cada ciclo de modelagem. Embora o número da Acurácia de quase todos os testes seja de 98% a 99%, essa métrica é uma ilusão derivada da assimetria extrema do dataset (apenas 1.1% de sub-representação). Em sistemas de fraude impera a necessidade de balizar o trade-off entre bloquear fraudadores e aprovar clientes bons.
 
 Para compreender os resultados, é imperativo o domínio dos seguintes conceitos macro-avaliativos:
-- **Recall (Sensibilidade):** Mede a proporção de fraudes reais que o sistema conseguiu detectar. Um Recall de 80% significa que de cada 100 fraudes, pegamos 80 e deixamos passar 20. Maximizar o Recall é o objetivo de segurança do banco.
-- **Precision (Precisão):** Avalia a proporção de acertos quando o sistema "apita" uma fraude. Uma Precisão de 20% significa que a cada 100 usuários bloqueados, apenas 20 eram de fato fraudadores (80 eram clientes legítimos bloqueados por engano - Falsos Positivos).
-- **F1-Score:** É a média harmônica entre Precision e Recall. Ele pune modelos que tem disparidade extrema entre as duas métricas (ex: Recall 99% mas Precision 1%), servindo como a métrica de "ponto ideal" para encontrar o melhor _Threshold_ (limiar de decisão).
-- **PR-AUC (Área sob a Curva Precision-Recall):** Mede a performance geral do modelo através de todos os limiares de decisão possíveis. É a métrica mais robusta e segura (muito melhor que a curva ROC tradicional) para datasets altamente desbalanceados.
+
+| Métrica | Significado no Contexto de Fraude | Impacto de Negócio |
+| :--- | :--- | :--- |
+| **Recall** *(Sensibilidade)* | Mede a proporção de fraudes reais que o sistema conseguiu detectar. Um Recall de 80% significa que de cada 100 fraudes, pegamos 80 e deixamos passar 20. | Maximizar o Recall é o **objetivo de segurança** da instituição financeira. |
+| **Precision** *(Precisão)* | Avalia a proporção de acertos quando o sistema "apita" uma fraude. Uma Precisão de 20% significa que a cada 100 usuários bloqueados, apenas 20 eram de fato fraudadores. | Minimiza o atrito gerado aos 80 clientes legítimos bloqueados por engano (Falsos Positivos). |
+| **F1-Score** | Média harmônica entre Precision e Recall. Pune modelos que tem disparidade extrema entre as duas métricas (ex: Recall 99% mas Precision 1%). | É a métrica de "ponto ideal" para encontrar o melhor **Threshold** (limiar de decisão). |
+| **PR-AUC** *(Precision-Recall Area)* | Mede a performance geral do modelo através de todos os limiares de decisão possíveis. | Métrica mais robusta e segura (muito melhor que a curva ROC tradicional) para datasets desbalanceados. |
 
 Abaixo, detalhamos conceitualmente, tecnicamente e os motivos do sucesso ou fracasso de cada modelo submetido ao laboratório de modelagem.
+
+---
 
 ## 12.1 Os Casos de Fracasso (Exemplos Negativos)
 
 ### 12.1.1 Árvore de Decisão Simples (`DecisionTreeClassifier`)
 
-- **Resultado Prático:** Fracasso Crítico. Apesar de boa métrica de treino inicial na validação cruzada (`CV Score = 0.81`), ruiu na base oficial de verificação com `F1-score` colapsando para `0.0`, errando a mão completamente no limiar `0.92`.
-- **Por que ocorreu? (Teoria):** Modelos monótonos foliares baseados em cortes diretos limitados (Gini/Entropy) não suportam desbalanceamento em massa orgânico se não receberem _Pruning_ (poda) severo muito bem delineado. A Árvore tenta minimizar a impureza total do nó, e na estatística macro deste conjunto, é mais fácil/barato e matematicamente recompensador para a folha apenas aglutinar massas de volume gigante "Legítimas", declarando `0`, para maximizar estabilidade, engolindo os parcos e irregulares `1` (fraudes) na multidão como varrimento de ruído orgânico.
-- **Parâmetros Técnicos e Seus Conceitos:**
-  - `max_depth` (Profundidade Máxima): Define o limite de quantos "níveis" a árvore pode descer fazendo subdivisões. Usou-se limitação de teto deliberada na matriz (`max_depth = 5`) visando atenuar a memorização viciosa de longo encadeamento (_Overfitting_ clássico). O efeito colateral reverso ocorreu subadestrando generalização no patamar final das partições (o modelo ficou "raso" demais para pegar as nuances da fraude).
+> **🔴 Resultado Prático:** Fracasso Crítico. Apesar de boa métrica de treino inicial na validação cruzada (`CV Score = 0.81`), ruiu na base oficial de verificação com `F1-score` colapsando para `0.0`, errando a mão completamente no limiar `0.92`.
+
+* **Por que ocorreu? (A Teoria):** Modelos monótonos foliares baseados em cortes diretos limitados (Gini/Entropy) não suportam desbalanceamento em massa orgânico se não receberem *Pruning* (poda) severo muito bem delineado. A Árvore tenta minimizar a impureza total do nó, e na estatística macro deste conjunto, é mais fácil/barato e matematicamente recompensador para a folha apenas aglutinar massas de volume gigante "Legítimas", declarando `0`, para maximizar estabilidade, engolindo os parcos e irregulares `1` (fraudes) na multidão como varrimento de ruído orgânico.
+
+**Parâmetros Técnicos Implementados:**
+
+| Parâmetro | Valor | Conceito e Impacto |
+| :--- | :--- | :--- |
+| `max_depth` <br>*(Profundidade Máxima)* | `5` | Define o limite de quantos "níveis" a árvore pode descer fazendo subdivisões. Usou-se limitação de teto deliberada visando atenuar a memorização viciosa de longo encadeamento (*Overfitting*). O efeito colateral reverso ocorreu subadestrando generalização no patamar final das partições (o modelo ficou "raso" demais para pegar as nuances da fraude). |
 
 ### 12.1.2 Floresta de Isolamento (`IForestWrapper` / Isolation Forest)
 
-- **Resultado Prático:** Incompatibilidade arquitetural na essência do ataque. Obteve-se `PR_AUC` pífio de `0.025` e `F1-score` baixo na borda otimizada (`0.061`).
-- **Por que ocorreu? (Teoria):** _Isolation forest_ provê isolamento heurístico baseado estritamente na distância topológica (Quantos "cortes/splits" distam para espremer e exilar o nó anômalo longe da densidade padrão dimensional). O problema técnico-financeiro atual reside na essência da fraude de Identidade Sintética (Onboarding Fraud): Os adversários não são exilados mal-feitos, eles se mimetizam pesadamente para imitarem o ser humano padrão limpo do ecossistema e cruzarem o bloqueador da agência.
-- **Parâmetros Técnicos e Seus Conceitos:**
-  - `n_estimators` (Número de Árvores): A quantidade de árvores isoladas criadas no vetor (200 árvores usadas para estabilizar o consenso).
-  - `contamination` (Contaminação): Define a estimativa predefinida do número de outliers na base de dados. Setado como `0.01` (1%), orientando o algoritmo a separar precocemente o quantitativo da massa isolada que se refere a nossa proporção de fraude conhecida.
-- **Conclusão Operacional:** Este não-supervisionado falha rotundamente contra comportamentos que mimetizam ou tentam absorver a média estatística. A fraude que nos assola não reflete Anomalia Espacial Pura Outlier.
+> **🔴 Resultado Prático:** Incompatibilidade arquitetural na essência do ataque. Obteve-se `PR_AUC` pífio de `0.025` e `F1-score` baixo na borda otimizada (`0.061`).
+
+* **Por que ocorreu? (A Teoria):** *Isolation forest* provê isolamento heurístico baseado estritamente na distância topológica (Quantos "cortes/splits" distam para espremer e exilar o nó anômalo longe da densidade padrão dimensional). O problema técnico-financeiro atual reside na essência da fraude de Identidade Sintética (Onboarding Fraud): Os adversários não são exilados mal-feitos, eles se mimetizam pesadamente para imitarem o ser humano padrão limpo do ecossistema e cruzarem o bloqueador da agência.
+* **Conclusão Operacional:** Este não-supervisionado falha rotundamente contra comportamentos que mimetizam ou tentam absorver a média estatística. A fraude que nos assola não reflete Anomalia Espacial Pura Outlier.
+
+**Parâmetros Técnicos Implementados:**
+
+| Parâmetro | Valor | Conceito e Impacto |
+| :--- | :--- | :--- |
+| `n_estimators` <br>*(Número de Árvores)* | `200` | A quantidade de árvores isoladas criadas no vetor (usado para estabilizar o consenso). |
+| `contamination` <br>*(Contaminação)* | `0.01` | Define a estimativa predefinida do número de outliers na base de dados (1%). Orienta o algoritmo a separar precocemente o quantitativo da massa isolada que se refere a nossa proporção de fraude conhecida. |
+
+---
 
 ## 12.2. A Transição e o Progresso
 
 ### 12.2.1 Floresta Aleatória (`RandomForestClassifier`)
 
-- **Resultado Prático:** Avanço metódico superando os blocos cegos monótonos do modelo de árvore de decisão (`F1 = 0.189`, `PR_AUC = 0.115`).
-- **Por que ocorreu a melhora? (Teoria):** Resolve o colapso unitário pela premissa pesada do _Bagging_ (Bootstrap Aggregation + Feature Subsampling). Cada uma das sub-árvores injetadas absorve pacotes orgânicos paralelos misturados randomicamente do conjunto total e reage a amostras microscópicas de colunas pré-sorteadas, gerando decorrelação forçada. O consenso demográfico maciço do modelo oblitera a variabilidade errante e provê generalização muito estável.
-- **Parâmetros Técnicos e Seus Conceitos:**
-  - `n_estimators` (Número de Estimadores): Quantas árvores avulsas compõem a floresta. Utilizamos `200`. Mais árvores garantem estabilidade de consenso populacional, mas aumentam pesadamente o tempo de processamento.
-  - `max_features` (Máximo de Features Sorteadas): Determina o número de variáveis que o algoritmo visualizará em um único nó divisório. Utilizamos `sqrt` (raiz quadrada), onde cada árvore no momento da partição fica "cega" à vasta maioria das características. Isso previne que features fortíssimas (como corretores digitais) dominem todas as árvores (trazendo diversidade real para a floresta).
-- **Ponto Fraco Metódico:** Random Forests não possuem aprendizado corretivo de repasse matricial temporal. Eles votam por consenso populacional inerte perante os `"Hard Examples"` (casos extremamente difíceis que compõem o fraudador escasso avançado). Eles batem um teto de cristal da complexidade preditiva se estagnando.
+> **🟡 Resultado Prático:** Avanço metódico superando os blocos cegos monótonos do modelo de árvore de decisão (`F1 = 0.189`, `PR_AUC = 0.115`).
+
+* **Por que ocorreu a melhora? (A Teoria):** Resolve o colapso unitário pela premissa pesada do *Bagging* (Bootstrap Aggregation + Feature Subsampling). Cada uma das sub-árvores injetadas absorve pacotes orgânicos paralelos misturados randomicamente do conjunto total e reage a amostras microscópicas de colunas pré-sorteadas, gerando decorrelação forçada. O consenso demográfico maciço do modelo oblitera a variabilidade errante e provê generalização muito estável.
+* **Ponto Fraco Metódico:** Random Forests não possuem aprendizado corretivo de repasse matricial temporal. Eles votam por consenso populacional inerte perante os `"Hard Examples"` (casos extremamente difíceis que compõem o fraudador escasso avançado). Eles batem um teto de cristal da complexidade preditiva se estagnando.
+
+**Parâmetros Técnicos Implementados:**
+
+| Parâmetro | Valor | Conceito e Impacto |
+| :--- | :--- | :--- |
+| `n_estimators` <br>*(Nº de Estimadores)* | `200` | Quantas árvores avulsas compõem a floresta. Mais árvores garantem estabilidade de consenso populacional, mas aumentam pesadamente o tempo de processamento. |
+| `max_features` <br>*(Features Sorteadas)* | `sqrt` | Determina o número de variáveis que o algoritmo visualizará em um único nó divisório (raiz quadrada). Cada árvore fica "cega" à vasta maioria das características, prevenindo que features fortíssimas dominem todas as árvores e trazendo diversidade real. |
 
 ### 12.2.2 Regressão Logística (`LogisticRegression`)
 
-- **Resultado Prático:** Performance assombrosa perante o preconceito técnico do meio. Superou o limite orgânico do Random Forest de forma limpa (`F1 = 0.212`, `PR_AUC = 0.137`).
-- **Por que funcionou e surpreendeu? (Teoria):** Executou o _Baseline Benchmark_ provando que nossa modelagem de Data Engineering (`Mutual Information` para colunas baseadas no risco orgânico interativo do negócio) possui força colossal. O algoritmo traça linearmente hiperplanos nas 38 dimensões, apoiando-se unicamente nas reações combinadas.
-- **Parâmetros Técnicos e Seus Conceitos:**
-  - `C` (Inverso da Força de Regularização): Controla quão rígido o modelo será contra erros na base de treino. O valor `C=0.01` é intensamente restritivo. Ele obriga o modelo a achar hiperplanos fracos, generalistas, mitigando memorização dos dados (`overfitting`). Em bases com fraude hiperminoritária, valores grandes de C fariam o modelo se adequar a pequenos ruídos desnecessários.
-  - `penalty` (Estratégia de Regularização): Utilizamos `'l2'` (Ridge Penalty). Trata-se do vetor de encolhimento de constantes. Ele impede que as multiplicações dos hiperparâmetros (como dar pontuação muito alta à idade do cliente) explodam, mantendo todos os pesos das características do cidadão encolhidos suavemente próximos a zero, estabilizando as variâncias agudas.
+> **🟡 Resultado Prático:** Performance assombrosa perante o preconceito técnico do meio. Superou o limite orgânico do Random Forest de forma limpa (`F1 = 0.212`, `PR_AUC = 0.137`).
+
+* **Por que funcionou e surpreendeu? (A Teoria):** Executou o *Baseline Benchmark* provando que nossa modelagem de Data Engineering (`Mutual Information` para colunas baseadas no risco orgânico interativo do negócio) possui força colossal. O algoritmo traça linearmente hiperplanos nas 38 dimensões, apoiando-se unicamente nas reações combinadas.
+
+**Parâmetros Técnicos Implementados:**
+
+| Parâmetro | Valor | Conceito e Impacto |
+| :--- | :--- | :--- |
+| `C` <br>*(Regularização Inversa)* | `0.01` | Controla quão rígido o modelo será contra erros na base. Um valor baixo (0.01) é intensamente restritivo. Ele obriga o modelo a achar hiperplanos fracos, generalistas, mitigando *overfitting*. Evita que o modelo se adeque a ruídos desnecessários. |
+| `penalty` <br>*(Estratégia Punitiva)* | `'l2'` | Ridge Penalty. Impede que as multiplicações dos hiperparâmetros (como dar pontuação muito alta à idade do cliente) explodam, mantendo os pesos das características encolhidos suavemente próximos a zero. |
+
+---
 
 ## 12.3 A Vanguarda Numérica (Exemplos Positivos)
 
 ### 12.3.1 Redes Neurais Cíbridas (`MLPClassifier` - Perceptron Multicamadas)
 
-- **Resultado Prático:** Captura de padrões ultra densos. Apresentou altíssima recuperação de captura sensível para o Pipeline Ensemble (`F1 = 0.220`).
-- **Como atua e o por que dos hiperparâmetros (Teoria):** Redes Neurais (Adeptos não-lineares puristas) absorvem correlações espaciais ocultas e sequenciamento invisível relacional. Requerem volumes titânicos.
-- **Parâmetros Técnicos e Seus Conceitos:**
-  - `hidden_layer_sizes` (Topologia Oculta): Determina quantas conexões formam os neurônios "abstratos" intermediários. A otimização adotada foi moldada à perfeição via padrão "Skinny but Wide" (`[128]`), processando largura densa com centenas de sinapses de uma vez sem descer níveis paralelos infindáveis para manter fôlego em um vetor puramente tabular.
-  - `alpha` (Taxa Punitiva L2): Análogo à penalidade da Regressão Logística, `0.001` estabelece teto reacional L2 contra pesos folgados de _Overfitting_ latente (limita a força bruta excessiva do Backpropagation).
-  - `activation` (Função de Ativação Oculta): O acionamento de não-linearidade sigmoidal suavizada da Tangente Hiperbólica (`"tanh"`) evitou estouros reativos que a ReLU normal causa num sistema estritamente tabular (onde dados não compartilham contiguidade espacial), gerando balanço harmônico em negativo/positivo do gradiente reverso.
-  - `learning_rate_init` (Passo de Convergência): Definida de forma minimalista estática (`0.0005`), para decair a "descida da montanha do custo matemático" estritamente a passo de formiga. Evita-se, assim, que as buscas pelo poço se arremessem aos sobressaltos cegos fora do abismo, que invalidariam as detecções finas da Fraude diluída.
+> **🟢 Resultado Prático:** Captura de padrões ultra densos. Apresentou altíssima recuperação de captura sensível para o Pipeline Ensemble (`F1 = 0.220`).
+
+* **Como atua e o por que (A Teoria):** Redes Neurais (Adeptos não-lineares puristas) absorvem correlações espaciais ocultas e sequenciamento invisível relacional. Requerem volumes titânicos de dados para extrair esses padrões sutis.
+
+**Parâmetros Técnicos Implementados:**
+
+| Parâmetro | Valor | Conceito e Impacto |
+| :--- | :--- | :--- |
+| `hidden_layer_sizes` <br>*(Topologia Oculta)* | `[128]` | Quantas conexões formam os neurônios "abstratos". Adotou-se o padrão "Skinny but Wide", processando largura densa de uma vez sem descer níveis paralelos infindáveis, mantendo fôlego em um vetor tabular. |
+| `alpha` <br>*(Taxa Punitiva L2)* | `0.001` | Análogo à penalidade da LogReg, estabelece teto reacional contra pesos folgados de *Overfitting* latente, limitando a força bruta excessiva do Backpropagation. |
+| `activation` <br>*(Função de Ativação)* | `'tanh'` | Acionamento de não-linearidade sigmoidal suavizada da Tangente Hiperbólica. Evitou estouros reativos que a ReLU normal causa num sistema estritamente tabular, gerando balanço harmônico em negativo/positivo do gradiente reverso. |
+| `learning_rate_init` <br>*(Passo de Convergência)*| `0.0005` | Definida de forma minimalista estática para decair a "descida da montanha do custo matemático" estritamente a passo de formiga. Evita saltos cegos fora do abismo, preservando as detecções finas da Fraude diluída. |
 
 ### 12.3.2 Máquinas de Gradient Boosting (`XGBClassifier` & `LGBMClassifier`)
 
-- **Resultados Práticos:** Consagração do _Hype_ tabulado do Aprendizado de Máquina Competitivo atual. Domínio ostensivo Absoluto das métricas focadas nos cenários de desproporção assimétrica (`LGBM: F1 = 0.231, PR_AUC = 0.158` / `XGB: F1 = 0.231, PR_AUC = 0.153`). Limites definidos para bloqueio otimizados na margem probabilística cravada em torno dos `0.88` aos `0.89`.
-- **A Essência do Sucesso (Boosting Sequencial Teórico):** Contrastando radicalmente perante a Natureza Aleatória de "Média Popular" gerada em paridade das Árvores Bagging, estes motores geram árvores estritamente encadeadas no espaço-tempo. A Árvore subsequente constrói-se focando seu Gradiente puramente nos Resíduos (O erro contínuo). Elas perseguem de forma predatória os `"Erros Complexos"` - a parcela elitista de fraudadores avançados que despistam todas as avaliações rasas - alocando neles pesos gigantes de penalização forçatória.
-- **Engenharia de Parâmetros e Seus Conceitos Implementados:**
-  - `learning_rate` (Taxa do Gradiente) & `n_estimators` (Passos Temporais): Modos como `0.03` a `0.10` em conjunção de `100` a `500` árvores formam uma Superfície Suave de Resgate. Ao criar centenas de árvores que aprendem minúsculos (ex: 3%) do erro anterior, evitamos radicalismos (aderir a caminhos mentirosos precoces), refinando a complexidade progressiva sem queimar poder de análise num passo só.
-  - `reg_alpha` (L1/Lasso) & `reg_lambda` (L2/Ridge): Funções de regularização matemáticas rigorosas (Ex: Alpha = `0.01` e Lambda = `5.0`). Elas destroem e impõem taxações mortais sobre galhos profundos soltos hiper específicos em amostras puras, castrando decorismos e propiciando defesas Anti-Explosivas no Teste Orgânico cego.
-  - `subsample` & `colsample_bytree` (Amostragem Fracionada Bidimensional): Variando entre `0.6` e `0.7`, ditam a pureza do cegamento. A cada nova árvore encadeada que tenta corrigir a base, o algoritmo é amordaçado para enxergar unicamente 60% das Colunas randômicas e 60% das Partições dos clientes do vetor. Ao não ter a "visão completa", a rede inteira é adestrada a identificar padrões variados subentendidos em combinações aleatórias enfraquecendo a "Super-Dependência" em colunas campeãs de predição.
+> **🟢 Resultados Práticos:** Consagração do *Hype* tabulado do Aprendizado de Máquina Competitivo atual. Domínio ostensivo Absoluto das métricas focadas nos cenários de desproporção assimétrica (`LGBM: F1 = 0.231, PR_AUC = 0.158` / `XGB: F1 = 0.231, PR_AUC = 0.153`). Limites de bloqueio otimizados na margem probabilística cravada em torno dos `0.88` aos `0.89`.
+
+* **A Essência do Sucesso (Boosting Sequencial Teórico):** Contrastando radicalmente perante a Natureza Aleatória de "Média Popular" gerada em paridade das Árvores Bagging, estes motores geram árvores estritamente encadeadas no espaço-tempo. A Árvore subsequente constrói-se focando seu Gradiente puramente nos Resíduos (O erro contínuo). Elas perseguem de forma predatória os `"Erros Complexos"` — a parcela elitista de fraudadores avançados que despistam todas as avaliações rasas — alocando neles pesos gigantes de penalização forçatória.
+
+**Engenharia de Parâmetros Implementados:**
+
+| Parâmetro | Valores Testados | Conceito e Impacto |
+| :--- | :--- | :--- |
+| `learning_rate` & `n_estimators` | `0.03 - 0.10` <br> & <br> `100 - 500` | **Taxa do Gradiente e Passos Temporais.** Formam uma Superfície Suave de Resgate. Ao criar centenas de árvores que aprendem parcelas minúsculas (ex: 3%) do erro anterior, evitamos radicalismos, refinando a complexidade progressiva sem queimar poder de análise num passo só. |
+| `reg_alpha` & `reg_lambda` | `0.01` (L1) <br> & <br> `5.0` (L2) | **Funções de regularização matemáticas.** Elas destroem e impõem taxações mortais sobre galhos profundos soltos hiper específicos, castrando decorismos e propiciando defesas Anti-Explosivas no Teste Orgânico cego. |
+| `subsample` & `colsample_bytree` | `0.6 - 0.7` | **Amostragem Fracionada Bidimensional.** Ditam a pureza do cegamento. A cada nova árvore, o algoritmo é amordaçado para enxergar unicamente 60% das Colunas randômicas e 60% dos Clientes. Isso adestra a rede a identificar padrões subentendidos, enfraquecendo a "Super-Dependência" em colunas campeãs. |
