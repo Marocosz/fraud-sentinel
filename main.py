@@ -7,7 +7,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.append(str(PROJECT_ROOT))
 
-# Tenta importar os módulos. Se falhar, avisa o usuário qual arquivo está faltando.
+# Tenta importar os modulos. Se falhar, avisa o usuario qual arquivo esta faltando.
 try:
     from src.config import PROCESSED_DATA_DIR, MODELS_DIR, REPORTS_DIR, FIGURES_DIR, RAW_DATA_PATH
     from src.data.make_dataset import load_and_split_data
@@ -22,33 +22,38 @@ try:
     from src.visualization.visualize import evaluate
     from src.models.predict_model import predict_sample
 except ImportError as e:
-    print(f"❌ ERRO CRÍTICO DE IMPORTAÇÃO: {e}")
-    print("Verifique se todos os arquivos (make_dataset.py, reg_log_model.py, etc) estão nas pastas corretas dentro de 'src/'.")
+    print(f"❌ ERRO CRITICO DE IMPORTACAO: {e}")
+    print("Verifique se todos os arquivos estao nas pastas corretas dentro de 'src/'.")
     sys.exit(1)
+
+# Imports opcionais (modelos que podem nao estar disponiveis)
+try:
+    from src.models.lightgbm_model import train_lightgbm
+    HAS_LIGHTGBM = True
+except ImportError:
+    HAS_LIGHTGBM = False
+
+try:
+    from src.models.stacking_model import train_stacking
+    HAS_STACKING = True
+except ImportError:
+    HAS_STACKING = False
+
 
 def reset_project_artifacts():
     """
-    Remove todos os artefatos gerados (processados, modelos e relatórios)
-    para garantir uma execução limpa e reprodutível.
+    Remove todos os artefatos gerados (processados, modelos e relatorios)
+    para garantir uma execucao limpa e reprodutivel.
     """
     print("\n🧹 [MAESTRO] Iniciando limpeza de artefatos antigos...")
     
-    first_run_file = PROCESSED_DATA_DIR / ".gitkeep"
-    
-    # Lista de diretórios a limpar
-    # OBSERVACAO: Removemos MODELS_DIR da limpeza para permitir histórico de experimentos.
     dirs_to_clean = [
         PROCESSED_DATA_DIR, 
-        # CLAUSULA DE SEGURANÇA: Não limpamos mais a pasta de modelos para manter histórico.
-        # MODELS_DIR, 
-        # REPORTS_DIR / "data", # Opcional: Se quiser limpar os CSVs de relatório
-        # FIGURES_DIR # Opcional: Se quiser limpar os gráficos
     ]
     
     for directory in dirs_to_clean:
         if directory.exists():
             try:
-                # Remove todo o conteúdo da pasta, mas mantém a pasta em si
                 for item in directory.glob("*"):
                     if item.name == ".gitkeep":
                         continue
@@ -59,23 +64,32 @@ def reset_project_artifacts():
                         shutil.rmtree(item)
                 print(f"   - Limpo: {directory.name}")
             except Exception as e:
-                print(f"⚠️ Aviso: Não foi possível limpar {directory}: {e}")
+                print(f"⚠️ Aviso: Nao foi possivel limpar {directory}: {e}")
                     
-    print("✨ Limpeza concluída! Ambiente pronto.")
+    print("✨ Limpeza concluida! Ambiente pronto.")
+
 
 def main():
     """
-    Função Principal (O Maestro).
-    Orquestra a execução de todo o pipeline de dados na ordem lógica.
+    Funcao Principal (O Maestro).
+    Orquestra a execucao de todo o pipeline de dados na ordem logica.
     """
     parser = argparse.ArgumentParser(description="🛡️ Fraud Sentinel - Maestro (Pipeline Orchestrator)")
     
     # Flags de Controle
     parser.add_argument("--no-reset", action="store_true", help="Inibe a limpeza inicial dos arquivos.")
-    parser.add_argument("--skip-eda", action="store_true", help="Pula a etapa de Análise Exploratória.")
+    parser.add_argument("--skip-eda", action="store_true", help="Pula a etapa de Analise Exploratoria.")
     parser.add_argument("--compare-models", action="store_true", help="Executa o torneio de modelos (Demorado).")
-    parser.add_argument("--predict", action="store_true", help="Roda uma simulação de predição no final.")
-    parser.add_argument("--models", type=str, default="all", help="Modelos a rodar separados por vírgula (ex: xgb,rf). Opções: logreg, dt, rf, xgb, mlp, if. Default: all")
+    parser.add_argument("--predict", action="store_true", help="Roda uma simulacao de predicao no final.")
+    parser.add_argument(
+        "--models", type=str, default="all",
+        help=(
+            "Modelos a rodar separados por virgula. "
+            "Opcoes: logreg, dt, rf, xgb, mlp, if, lgbm, stacking. "
+            "Default: all (todos exceto stacking, que requer modelos pre-treinados). "
+            "Exemplo: --models xgb,lgbm,stacking"
+        )
+    )
     
     args = parser.parse_args()
 
@@ -94,7 +108,7 @@ def main():
 
     # 3. EDA
     if not args.skip_eda:
-        print("\n🎨 [MAESTRO] 2. Movimento: Análise Exploratória (generate_eda_report.py)")
+        print("\n🎨 [MAESTRO] 2. Movimento: Analise Exploratoria (generate_eda_report.py)")
         reporter = EDAReporter(RAW_DATA_PATH)
         reporter.run()
     else:
@@ -103,20 +117,27 @@ def main():
     # 4. MODEL COMPARISON
     if args.compare_models:
         print("\n🥊 [MAESTRO] 3. Movimento: Torneio de Modelos (compare_models.py)")
-        print("   Esta etapa pode levar vários minutos...")
+        print("   Esta etapa pode levar varios minutos...")
         compare_algorithms()
     else:
-        print("\n⏩ [MAESTRO] Pulando Torneio de Modelos (Padrão).")
+        print("\n⏩ [MAESTRO] Pulando Torneio de Modelos (Padrao).")
 
     # 5. MODEL TRAINING & EVALUATION
-    print("\n🧠 [MAESTRO] 4. Movimento: Treinamento & Avaliação e Seleção de Modelos")
+    print("\n🧠 [MAESTRO] 4. Movimento: Treinamento & Avaliacao e Selecao de Modelos")
     
     # Parse models argument
     if args.models == "all":
+        # Por default, roda todos EXCETO stacking (precisa dos modelos base prontos)
         selected_models = ["logreg", "dt", "rf", "xgb", "mlp", "if"]
+        if HAS_LIGHTGBM:
+            selected_models.append("lgbm")
     else:
         selected_models = [m.strip().lower() for m in args.models.split(",")]
 
+    # -------------------------------------------------------------------------
+    # MODELOS INDIVIDUAIS
+    # -------------------------------------------------------------------------
+    
     # 4.1 Logistic Regression
     if "logreg" in selected_models:
         print("\n📌 [SUB-TAREFA] 4.1. Logistic Regression")
@@ -151,19 +172,40 @@ def main():
     if "if" in selected_models:
         print("\n📌 [SUB-TAREFA] 4.6. Isolation Forest (Anomaly Detection)")
         train_isolation_forest()
-        # Nota: IF precisa de tratamento especial no evaluate se não tiver predict_proba,
-        # mas nosso Wrapper implementa predict_proba, então deve funcionar!
         evaluate(model_name="if")
+    
+    # 4.7 LightGBM (NOVO)
+    if "lgbm" in selected_models:
+        if HAS_LIGHTGBM:
+            print("\n📌 [SUB-TAREFA] 4.7. LightGBM")
+            train_lightgbm()
+            evaluate(model_name="lgbm")
+        else:
+            print("\n⚠️ LightGBM nao disponivel. Instale: pip install lightgbm")
+    
+    # -------------------------------------------------------------------------
+    # ENSEMBLE (deve rodar APOS os modelos individuais)
+    # -------------------------------------------------------------------------
+    
+    # 4.8 Stacking Ensemble (NOVO)
+    if "stacking" in selected_models:
+        if HAS_STACKING:
+            print("\n📌 [SUB-TAREFA] 4.8. Stacking Ensemble (Meta-Modelo)")
+            print("   Nota: Requer modelos base (xgb, rf) ja treinados.")
+            train_stacking()
+            evaluate(model_name="stacking")
+        else:
+            print("\n⚠️ Stacking nao disponivel.")
 
-    # 7. PREDICTION (Opcional)
+    # 6. PREDICTION (Opcional)
     if args.predict:
-        print("\n🔮 [MAESTRO] 6. Movimento: Simulação de Produção (predict_model.py)")
-        # Usa o primeiro modelo da lista selecionada como default para predição, ou xgb se disponível
+        print("\n🔮 [MAESTRO] 6. Movimento: Simulacao de Producao (predict_model.py)")
         pred_model = "xgb" if "xgb" in selected_models else selected_models[0]
         predict_sample(model_name=pred_model)
 
-    print("\n🏁 [MAESTRO] Sinfonia Concluída! Seu projeto foi executado com sucesso.")
-    print(f"📊 Verifique os relatórios em: {REPORTS_DIR}")
+    print("\n🏁 [MAESTRO] Sinfonia Concluida! Seu projeto foi executado com sucesso.")
+    print(f"📊 Verifique os relatorios em: {REPORTS_DIR}")
+
 
 if __name__ == "__main__":
     main()
@@ -172,27 +214,28 @@ if __name__ == "__main__":
 # COMO EXECUTAR ESTE ARQUIVO (MANUAL DE USO)
 # ==============================================================================
 #
-# 1. Execução Padrão (Recomendado para primeira vez):
-#    Limpa artefatos antigos, roda EDA, treina TODOS os modelos otimizados e avalia cada um.
+# 1. Execucao Padrao (Recomendado para primeira vez):
+#    Limpa artefatos antigos, roda EDA, treina TODOS os modelos otimizados.
 #    > python main.py
 #
-# 2. Execução Rápida (Sem EDA):
-#    Pula a análise exploratória (que pode demorar) e vai direto pro treino dos modelos.
+# 2. Execucao Rapida (Sem EDA):
+#    Pula a analise exploratoria e vai direto pro treino.
 #    > python main.py --skip-eda
 #
-# 3. Execução Completa (Com Torneio de Modelos):
-#    Roda também o benchmark inicial de algoritmos antes de treinar os finais.
-#    > python main.py --compare-models
-
+# 3. Execucao Completa com Ensemble:
+#    Treina modelos base e depois combina no Stacking.
+#    > python main.py --skip-eda --models xgb,rf,lgbm,logreg,stacking
 #
-# 4. Execução de Manutenção (Sem Limpeza):
-#    Não apaga os arquivos processados (útil se você já rodou o make_dataset.py).
+# 4. Apenas XGBoost + LightGBM + Stacking:
+#    > python main.py --skip-eda --no-reset --models xgb,lgbm,stacking
+#
+# 5. Execucao de Manutencao (Sem Limpeza):
+#    Nao apaga os arquivos processados.
 #    > python main.py --no-reset
 #
-# 5. Execução com Simulação de Predição:
-#    No final, roda um teste de inferência com dados aleatórios simulando produção.
+# 6. Execucao com Simulacao de Predicao:
 #    > python main.py --predict
 #
-# Combinando Flags (Exemplo):
-#    > python main.py --skip-eda --no-reset --predict
+# 7. Combinando Flags (Exemplo):
+#    > python main.py --skip-eda --no-reset --models xgb,lgbm --predict
 # ==============================================================================

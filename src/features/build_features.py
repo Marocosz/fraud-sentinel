@@ -92,12 +92,49 @@ class EDAFeatureEngineer(BaseEstimator, TransformerMixin):
        - payment_type == 'AC': 1.67% fraude (1.5x a media)
        - source == 'TELEAPP': 1.59% fraude (1.4x a media)
 
-    5. FEATURE INTERACTIONS (COMPORTAMENTO DIGITAL)
-       As top 3 features por MI Score sao todas digitais. A interacao captura
-       padroes compostos que features individuais nao expressam:
-       - digital_risk_score = email_is_free * device_distinct_emails_8w
-       Hipotese: Email gratuito + multiplos emails no mesmo dispositivo
-       e um forte indicador composto de fraude.
+    5. FEATURE INTERACTIONS (COMPORTAMENTO DIGITAL + DEMOGRAFICO)
+       As top 3 features por MI Score sao todas digitais. As interacoes capturam
+       padroes compostos que features individuais nao expressam.
+
+       5a. digital_risk_score = email_is_free * device_distinct_emails_8w
+           Hipotese: Email gratuito + multiplos emails no mesmo dispositivo
+           e um forte indicador composto de fraude.
+
+       5b. velocity_anomaly = velocity_6h / (velocity_4w + 1)
+           Hipotese: Picos subitos de atividade (alta velocidade recente vs
+           historica) indicam comportamento atipico associado a fraude.
+           EDA indica que velocity_6h apresenta mudancas mais drasticas
+           em registros fraudulentos.
+
+       5c. credit_utilization = intended_balcon_amount / (proposed_credit_limit + 1)
+           Hipotese: Ratio alto indica tentativa de usar todo o credito
+           disponivel rapidamente, comportamento tipico de fraude.
+           Ambas features tem >15% de outliers e correlacao com o target.
+
+       5d. age_income_risk = customer_age * income
+           Hipotese: Perfis demograficos especificos (jovens com renda alta
+           ou idosos com renda muito baixa) podem indicar identidade falsa.
+           Ambas tem correlacao significativa com fraude (p < 0.001).
+
+       5e. multi_risk_flag = is_high_risk_housing * is_high_risk_os * email_is_free
+           Hipotese: A combinacao simultanea de multiplos fatores de alto risco
+           multiplica a probabilidade de fraude. Fraud Rate isolado:
+           BA=3.75%, windows=2.47%, email_free=~1.5%. Combo deve ser >>3%.
+
+       5f. phone_mismatch = phone_home_valid XOR phone_mobile_valid
+           Hipotese: Ter APENAS um tipo de telefone valido (mas nao ambos e
+           nao nenhum) pode indicar uso de numero temporario.
+           phone_home_valid e phone_mobile_valid tem correlacoes opostas
+           com fraude no EDA.
+
+       5g. email_velocity_risk = email_is_free * velocity_6h
+           Hipotese: Email gratuito combinado com alta velocidade de transacao
+           indica atividade automatizada de fraude.
+
+       5h. address_stability = current_address_months_count / (customer_age * 12 + 1)
+           Hipotese: Fracao da vida no endereco atual. Valores muito baixos
+           (mudancas recentes) combinados com outros fatores indicam risco.
+           current_address_months_count tem correlacao de 0.048 com fraude.
     """
 
     # -------------------------------------------------------------------------
@@ -186,11 +223,45 @@ class EDAFeatureEngineer(BaseEstimator, TransformerMixin):
             if col in X.columns:
                 X[flag_name] = (X[col] == risk_value).astype(np.int8)
 
-        # ----- 5. FEATURE INTERACTIONS (DIGITAL) -----
+        # ----- 5. FEATURE INTERACTIONS -----
+
+        # 5a. DIGITAL RISK SCORE (email gratuito * multiplos emails no dispositivo)
         if 'email_is_free' in X.columns and 'device_distinct_emails_8w' in X.columns:
             X['digital_risk_score'] = (
                 X['email_is_free'] * X['device_distinct_emails_8w']
             )
+
+        # 5b. VELOCITY ANOMALY (pico de atividade recente vs historico)
+        if 'velocity_6h' in X.columns and 'velocity_4w' in X.columns:
+            X['velocity_anomaly'] = X['velocity_6h'] / (X['velocity_4w'] + 1)
+
+        # 5c. CREDIT UTILIZATION RATIO (tentativa de usar todo o credito)
+        if 'intended_balcon_amount' in X.columns and 'proposed_credit_limit' in X.columns:
+            X['credit_utilization'] = X['intended_balcon_amount'] / (X['proposed_credit_limit'] + 1)
+
+        # 5d. AGE-INCOME DEMOGRAPHIC RISK (perfil demografico anomalo)
+        if 'customer_age' in X.columns and 'income' in X.columns:
+            X['age_income_risk'] = X['customer_age'] * X['income']
+
+        # 5e. MULTI-RISK COMBINATION FLAG (acumulo de fatores de risco)
+        if all(col in X.columns for col in ['is_high_risk_housing', 'is_high_risk_os', 'email_is_free']):
+            X['multi_risk_flag'] = (
+                X['is_high_risk_housing'] * X['is_high_risk_os'] * X['email_is_free']
+            ).astype(np.int8)
+
+        # 5f. PHONE MISMATCH (apenas um tipo de telefone valido)
+        if 'phone_home_valid' in X.columns and 'phone_mobile_valid' in X.columns:
+            X['phone_mismatch'] = (
+                X['phone_home_valid'] != X['phone_mobile_valid']
+            ).astype(np.int8)
+
+        # 5g. EMAIL-VELOCITY RISK (email gratuito + alta velocidade = automacao)
+        if 'email_is_free' in X.columns and 'velocity_6h' in X.columns:
+            X['email_velocity_risk'] = X['email_is_free'] * X['velocity_6h']
+
+        # 5h. ADDRESS STABILITY (estabilidade no endereco em relacao a idade)
+        if 'current_address_months_count' in X.columns and 'customer_age' in X.columns:
+            X['address_stability'] = X['current_address_months_count'] / (X['customer_age'] * 12 + 1)
 
         return X
 

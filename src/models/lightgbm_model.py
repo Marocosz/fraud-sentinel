@@ -7,49 +7,51 @@ import warnings
 import json
 import datetime
 from pathlib import Path
-from xgboost import XGBClassifier
 from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold, train_test_split
 from sklearn.pipeline import Pipeline
-from scipy.stats import uniform, randint
 
 # ==============================================================================
-# ARQUIVO: xgboost_model.py
+# ARQUIVO: lightgbm_model.py
 #
 # OBJETIVO:
-#   Treinar e otimizar o modelo XGBoost com busca de hiperparametros ampla.
+#   Treinar e otimizar o modelo LightGBM (Light Gradient Boosting Machine).
 #
-# MELHORIAS (v2):
-#   - RandomizedSearchCV ao inves de GridSearchCV (mais eficiente para espacos
-#     grandes de hiperparametros, referencia: Bergstra & Bengio, 2012).
-#   - Espaco de busca enriquecido com subsample, colsample_bytree,
-#     min_child_weight e gamma (regularizacao).
-#   - Threshold calculado em hold-out de validacao (sem data leakage).
-#   - Logging centralizado via threshold_utils.
+# JUSTIFICATIVA PARA INCLUSAO:
+#   O LightGBM e um dos algoritmos mais utilizados na industria para deteccao
+#   de fraude por varias razoes:
+#   1. VELOCIDADE: Usa histogram-based splitting (O(n*features) -> O(bins*features)),
+#      tornando-o 5-20x mais rapido que XGBoost tradicional.
+#   2. EFICIENCIA DE MEMORIA: Agrupa valores em bins discretos.
+#   3. LEAF-WISE GROWTH: Diferente de level-wise (XGBoost), cresce a folha que
+#      reduz mais o loss, convergindo mais rapido.
+#   4. SUPORTE NATIVO A CATEGORICAS: Pode tratar categoricas sem One-Hot,
+#      mas aqui usamos o pipeline padrao para consistencia.
+#   5. RANKING DE COMPETICOES: Top performer em Kaggle para dados tabulares
+#      (Fernandez-Delgado et al., 2014; Grinsztajn et al., 2022).
+#
+# REFERENCIA:
+#   Ke, G. et al. (2017). "LightGBM: A Highly Efficient Gradient Boosting Decision Tree."
+#   NeurIPS 2017.
 #
 # PARTE DO SISTEMA:
 #   Modulo de Treinamento e Otimizacao (Model Training Stage).
 #
 # COMUNICACAO:
 #   - Le: data/processed/X_train.csv, y_train.csv
-#   - Escreve: models/xgb_best_model.pkl, models/xgb_threshold.txt
+#   - Escreve: models/lgbm_best_model.pkl, models/lgbm_threshold.txt
 # ==============================================================================
 
-# Ignora avisos
 warnings.filterwarnings("ignore", category=FutureWarning)
-warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
-warnings.filterwarnings("ignore", category=UserWarning, module="xgboost")
+warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", message=".*pkg_resources.*")
 
-# Configuracao de Caminhos
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(PROJECT_ROOT))
 
-# Imports do Projeto
 from src.config import PROCESSED_DATA_DIR, MODELS_DIR, RANDOM_STATE, REPORTS_DIR
 from src.features.build_features import build_pipeline
 from src.models.threshold_utils import compute_optimal_threshold, save_threshold, log_experiment
 
-# Configuracao de Logs
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -57,64 +59,70 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ==============================================================================
-# CONFIGURACAO DO MODELO (PARAMETROS)
-# ==============================================================================
-MODEL_CONFIG = {
-    # Modelo Base
-    "model_class": XGBClassifier,
-    "model_params": {
-        "eval_metric": "logloss",
-        "scale_pos_weight": 90,  # Peso alto (90:1) para compensar desbalanceamento
-        "n_jobs": -1,
-        "random_state": RANDOM_STATE,
-        "tree_method": "hist",   # Treinamento acelerado via histograma
-    },
-    
-    # Estrategia de Oversampling
-    "smote_strategy": None,
-    
-    # Validacao Cruzada
-    "cv_folds": 3,
-    
-    # Espaco de Busca ENRIQUECIDO (RandomizedSearchCV)
-    # Referencia: XGBoost Documentation + "Practical Hyperparameter Optimization"
-    # (Probst et al., 2019)
-    "param_distributions": {
-        'model__learning_rate': [0.01, 0.03, 0.05, 0.1, 0.15],
-        'model__n_estimators': [100, 200, 300, 500],
-        'model__max_depth': [3, 4, 5, 6, 7, 8],
-        'model__min_child_weight': [1, 3, 5, 7],        # Regularizacao: min amostras por folha
-        'model__subsample': [0.6, 0.7, 0.8, 0.9, 1.0],  # Bagging: fracao de amostras por arvore
-        'model__colsample_bytree': [0.6, 0.7, 0.8, 0.9, 1.0],  # Feature bagging por arvore
-        'model__gamma': [0, 0.1, 0.3, 0.5, 1.0],        # Min loss reduction para split
-        'model__reg_alpha': [0, 0.01, 0.1, 1.0],         # Regularizacao L1
-        'model__reg_lambda': [0.1, 0.5, 1.0, 5.0],       # Regularizacao L2
-    },
-    
-    # Numero de combinacoes aleatorias a testar
-    "n_iter": 60,
-    
-    # Configuracao de Execucao
-    "n_jobs": 1,       # Jobs do GridSearch (XGBoost ja usa paralelismo interno)
-    "verbose": 1
-}
 
-def train_xgboost():
+def get_model_config():
     """
-    Treina o modelo XGBoost com otimizacao completa de hiperparametros.
+    Retorna a configuracao do modelo LightGBM.
+    Importa LGBMClassifier dinamicamente para evitar ImportError
+    caso o pacote nao esteja instalado.
+    """
+    from lightgbm import LGBMClassifier
+    
+    return {
+        "model_class": LGBMClassifier,
+        "model_params": {
+            "class_weight": "balanced",
+            "n_jobs": -1,
+            "random_state": RANDOM_STATE,
+            "verbose": -1,      # Desativa output de treinamento do LightGBM
+            "importance_type": "gain",  # Feature importance por ganho de informacao
+        },
+        
+        "smote_strategy": None,
+        "cv_folds": 3,
+        
+        # Espaco de Busca Profissional (RandomizedSearchCV)
+        # Baseado em: "LightGBM Practical Guide" + competicoes Kaggle
+        "param_distributions": {
+            'model__learning_rate': [0.01, 0.03, 0.05, 0.1],
+            'model__n_estimators': [100, 200, 300, 500, 700],
+            'model__max_depth': [-1, 3, 5, 7, 10],       # -1 = sem limite
+            'model__num_leaves': [15, 31, 63, 127],       # Complexidade da arvore
+            'model__min_child_samples': [5, 10, 20, 50],  # Min amostras por folha 
+            'model__subsample': [0.6, 0.7, 0.8, 0.9, 1.0], # Bagging
+            'model__colsample_bytree': [0.6, 0.7, 0.8, 0.9, 1.0],
+            'model__reg_alpha': [0, 0.01, 0.1, 1.0],     # L1
+            'model__reg_lambda': [0, 0.1, 1.0, 5.0],     # L2
+        },
+        
+        "n_iter": 60,
+        "n_jobs": 1,     # Jobs do search (LightGBM usa paralelismo interno)
+        "verbose": 1
+    }
+
+
+def train_lightgbm():
+    """
+    Treina o modelo LightGBM com otimizacao completa de hiperparametros.
     
     METODOLOGIA:
     ----------------------
-    1. Pipeline Completo: EDAFeatureEngineer -> ColumnTransformer -> XGBClassifier.
-    2. RandomizedSearchCV para exploracao eficiente do espaco de hiperparametros.
-       Com 60 iteracoes aleatorias, cobrimos estatisticamente 95% do espaco efetivo
-       (Bergstra & Bengio, "Random Search for Hyper-Parameter Optimization", 2012).
+    1. Pipeline Completo: EDAFeatureEngineer -> ColumnTransformer -> LGBMClassifier.
+    2. RandomizedSearchCV com 60 iteracoes para explorar espaco amplo.
     3. Threshold otimizado em hold-out de validacao (sem data leakage).
     """
-    run_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    logger.info(f"🚀 Iniciando Pipeline de Treinamento XGBoost (Run ID: {run_id})...")
+    try:
+        MODEL_CONFIG = get_model_config()
+    except ImportError:
+        logger.error("❌ LightGBM nao instalado. Rode: pip install lightgbm")
+        return
     
+    run_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    logger.info(f"🚀 Iniciando Pipeline de Treinamento LightGBM (Run ID: {run_id})...")
+    
+    # -------------------------------------------------------------------------
+    # 1. CARGA DE DADOS
+    # -------------------------------------------------------------------------
     X_train_path = PROCESSED_DATA_DIR / "X_train.csv"
     y_train_path = PROCESSED_DATA_DIR / "y_train.csv"
     
@@ -133,18 +141,17 @@ def train_xgboost():
     # -------------------------------------------------------------------------
     clf = MODEL_CONFIG["model_class"](**MODEL_CONFIG["model_params"])
     
-    logger.info("❌ SMOTE Desativado. Usando scale_pos_weight=90.")
     logger.info("🔬 Aplicando Feature Engineering baseado na EDA.")
     pipeline = build_pipeline(X_train, clf)
     
     cv = StratifiedKFold(n_splits=MODEL_CONFIG["cv_folds"], shuffle=True, random_state=RANDOM_STATE)
     
     # -------------------------------------------------------------------------
-    # 3. AMOSTRAGEM PARA BUSCA (Eficiencia Computacional)
+    # 3. AMOSTRAGEM PARA BUSCA
     # -------------------------------------------------------------------------
     SAMPLE_SIZE = 100000
     if len(X_train) > SAMPLE_SIZE:
-        logger.info(f"⚡ Otimizacao Acelerada: Usando amostra estratificada de {SAMPLE_SIZE} linhas para RandomizedSearch.")
+        logger.info(f"⚡ Otimizacao Acelerada: Usando amostra de {SAMPLE_SIZE} linhas para RandomizedSearch.")
         X_sample, _, y_sample, _ = train_test_split(
             X_train, y_train, train_size=SAMPLE_SIZE, stratify=y_train, random_state=RANDOM_STATE
         )
@@ -163,7 +170,7 @@ def train_xgboost():
         n_jobs=MODEL_CONFIG["n_jobs"],
         verbose=MODEL_CONFIG["verbose"],
         random_state=RANDOM_STATE,
-        return_train_score=True  # Para diagnosticar overfitting
+        return_train_score=True
     )
     
     logger.info(f"⚙️  Otimizando Hiperparametros (RandomizedSearchCV: {MODEL_CONFIG['n_iter']} iteracoes)...")
@@ -180,27 +187,25 @@ def train_xgboost():
     best_idx = random_search.best_index_
     train_score = random_search.cv_results_['mean_train_score'][best_idx]
     logger.info(f"   ROC-AUC (Treino): {train_score:.4f} | Gap: {train_score - best_score:.4f}")
-    if train_score - best_score > 0.05:
-        logger.warning("⚠️  Gap Treino-Validacao > 5%: Possivel overfitting! Considere mais regularizacao.")
     
     # -------------------------------------------------------------------------
     # 5. RETREINO COM DATASET COMPLETO
     # -------------------------------------------------------------------------
-    logger.info("🚀 Retreinando modelo campeao com TODOS os dados (800k+ linhas)...")
+    logger.info("🚀 Retreinando modelo campeao com TODOS os dados...")
     final_model = random_search.best_estimator_
     final_model.fit(X_train, y_train)
     
     # -------------------------------------------------------------------------
     # 6. PERSISTENCIA
     # -------------------------------------------------------------------------
-    latest_model_path = MODELS_DIR / "xgb_best_model.pkl"
-    versioned_model_path = MODELS_DIR / f"model_xgb_{run_id}.pkl"
+    latest_model_path = MODELS_DIR / "lgbm_best_model.pkl"
+    versioned_model_path = MODELS_DIR / f"model_lgbm_{run_id}.pkl"
     joblib.dump(final_model, latest_model_path)
     joblib.dump(final_model, versioned_model_path)
     logger.info(f"💾 Modelo salvo em: {latest_model_path}")
 
     # -------------------------------------------------------------------------
-    # 7. THRESHOLD TUNING (Corrigido: Hold-out de Validacao)
+    # 7. THRESHOLD TUNING
     # -------------------------------------------------------------------------
     best_threshold, best_fbeta, final_model = compute_optimal_threshold(
         model=final_model,
@@ -209,18 +214,18 @@ def train_xgboost():
         validation_fraction=0.2,
         random_state=RANDOM_STATE,
         beta=1.0,
-        model_name="xgb",
+        model_name="lgbm",
         skip_final_refit=True  # Ja treinado com 100% dos dados acima
     )
     
-    save_threshold(best_threshold, "xgb", MODELS_DIR)
+    save_threshold(best_threshold, "lgbm", MODELS_DIR)
     
     # -------------------------------------------------------------------------
     # 8. REGISTRO DO EXPERIMENTO
     # -------------------------------------------------------------------------
     log_experiment(
         run_id=run_id,
-        model_type="XGBClassifier",
+        model_type="LGBMClassifier",
         best_params=best_params,
         best_cv_score=best_score,
         best_threshold=best_threshold,
@@ -234,12 +239,11 @@ def train_xgboost():
         }
     )
     
-    # Relatorio Simples
-    with open(MODELS_DIR / "xgb_best_model_params.txt", "w") as f:
+    with open(MODELS_DIR / "lgbm_best_model_params.txt", "w") as f:
         f.write(f"Run ID: {run_id}\n")
         f.write(f"Best ROC-AUC: {best_score:.4f}\n")
         f.write(f"Optimal Threshold: {best_threshold:.4f}\n")
         f.write(f"Params: {best_params}\n")
 
 if __name__ == "__main__":
-    train_xgboost()
+    train_lightgbm()

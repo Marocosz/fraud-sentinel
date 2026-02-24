@@ -12,22 +12,26 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import precision_recall_curve, roc_auc_score
+from sklearn.model_selection import train_test_split
 
 # ==============================================================================
 # ARQUIVO: isolation_forest_model.py
 #
 # OBJETIVO:
-#   Treinar e otimizar o modelo Isolation Forest (Detecção de Anomalias).
+#   Treinar e otimizar o modelo Isolation Forest (Deteccao de Anomalias).
 #   
-#   DIFERENCIAL TÉCNICO:
-#   O Isolation Forest é nativamente NÃO-SUPERVISIONADO (não usa labels para treinar),
-#   mas estamos usando em um pipeline supervisionado para avaliação.
-#   Criamos um Wrapper (IForestWrapper) para converter a saída de anomalia 
-#   (decision_function) em uma "probabilidade" de 0 a 1, permitindo integração
-#   com o resto do sistema (predict_model.py, visualize.py).
+# DIFERENCIAL TECNICO:
+#   O Isolation Forest e nativamente NAO-SUPERVISIONADO (nao usa labels),
+#   mas estamos usando em um pipeline supervisionado para avaliacao.
+#   O IForestWrapper converte a saida de anomalia (decision_function) em 
+#   uma "probabilidade" de 0 a 1, permitindo integracao com o sistema.
+#
+# MELHORIAS (v2):
+#   - Threshold calculado em hold-out de validacao (sem data leakage).
+#   - Logging centralizado via threshold_utils.
 #
 # PARTE DO SISTEMA:
-#   Módulo de Treinamento e Otimização.
+#   Modulo de Treinamento e Otimizacao.
 # ==============================================================================
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -38,6 +42,7 @@ sys.path.append(str(PROJECT_ROOT))
 
 from src.config import PROCESSED_DATA_DIR, MODELS_DIR, RANDOM_STATE, REPORTS_DIR
 from src.features.build_features import build_pipeline, EDAFeatureEngineer, get_preprocessor
+from src.models.threshold_utils import save_threshold, log_experiment
 
 logging.basicConfig(
     level=logging.INFO,
@@ -46,11 +51,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 class IForestWrapper(BaseEstimator, ClassifierMixin):
     """
-    Wrapper para tornar o IsolationForest compatível com pipelines de classificação
-    padrão do Scikit-Learn (predict_proba).
-    Turn decision_function (score de anomalia) into probability-like score.
+    Wrapper para tornar o IsolationForest compativel com pipelines de classificacao
+    padrao do Scikit-Learn (predict_proba).
+    Converte decision_function (score de anomalia) em probabilidade.
     """
     def __init__(self, n_estimators=100, contamination='auto', n_jobs=-1, random_state=42):
         self.n_estimators = n_estimators
@@ -63,115 +69,106 @@ class IForestWrapper(BaseEstimator, ClassifierMixin):
             n_jobs=n_jobs,
             random_state=random_state
         )
-        self.scaler = MinMaxScaler() # Para normalizar o score entre 0 e 1
+        self.scaler = MinMaxScaler()
 
     def fit(self, X, y=None):
-        # Isolation Forest é não supervisionado, ignora Y no fit do modelo interno
         self.model.fit(X)
-        
-        # Mas precisamos ajustar o scaler nos scores de decisão para gerar "probabilidades"
-        # Score negativo = Anomalia. Invemos para positivo = Prob. Fraude
         scores = -self.model.decision_function(X)
         self.scaler.fit(scores.reshape(-1, 1))
-        
-        # Salva as classes para compatibilidade com sklearn
         self.classes_ = np.array([0, 1])
         return self
 
     def predict(self, X):
-        # Retorna 1 se for fraude (anomalia), 0 se normal
-        # IF retorna -1 para anomalia, 1 para normal
         preds = self.model.predict(X)
         return np.where(preds == -1, 1, 0)
 
     def predict_proba(self, X):
-        # Converte decision_function em probabilidade [0, 1]
         decision = -self.model.decision_function(X)
         proba_fraud = self.scaler.transform(decision.reshape(-1, 1)).ravel()
-        # Clip para garantir intervalo [0,1]
         proba_fraud = np.clip(proba_fraud, 0, 1)
-        
-        # Retorna formato (n_samples, 2) -> [prob_0, prob_1]
         return np.vstack([1 - proba_fraud, proba_fraud]).T
 
+
 def train_isolation_forest():
+    """
+    Treina o Isolation Forest com threshold otimizado em validacao.
+    
+    NOTA: Isolation Forest e nao-supervisionado, entao nao faz sentido usar
+    GridSearchCV com ROC-AUC (pois nao usa labels no fit). O threshold, porem,
+    deve ser calculado em dados nao vistos para evitar data leakage.
+    """
     run_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     logger.info(f"🚀 Iniciando Pipeline Isolation Forest (Run ID: {run_id})...")
     
-    # 1. Carga de Dados
     X_train_path = PROCESSED_DATA_DIR / "X_train.csv"
     y_train_path = PROCESSED_DATA_DIR / "y_train.csv"
     
     if not X_train_path.exists():
-        logger.error("❌ Arquivos de treino não encontrados.")
+        logger.error("❌ Arquivos de treino nao encontrados.")
         return
 
     X_train = pd.read_csv(X_train_path)
     y_train = pd.read_csv(y_train_path).values.ravel()
     
-    # 2. Pipeline (EDA-Driven: Feature Engineering + Preprocessing + Modelo)
     logger.info("🔬 Aplicando Feature Engineering baseado na EDA.")
     
-    # Isolation Forest usa o Wrapper, nao o classificador direto
     model = IForestWrapper(n_estimators=200, contamination=0.01, random_state=RANDOM_STATE)
     pipeline = build_pipeline(X_train, model)
     
-    logger.info("⚡ Iniciando treinamento (detecção de anomalias)...")
-    # Não usamos GridSearch aqui para simplificar, pois IF é não-supervisionado
-    # e métricas de CV padrão de classificação não se aplicam diretamente na fase de fit
+    # -------------------------------------------------------------------------
+    # THRESHOLD: Usar hold-out separado
+    # -------------------------------------------------------------------------
+    logger.info("⚖️  Separando hold-out de validacao para threshold...")
+    X_tr, X_val, y_tr, y_val = train_test_split(
+        X_train, y_train, test_size=0.2, stratify=y_train, random_state=RANDOM_STATE
+    )
+    
+    logger.info(f"⚡ Treinando no subset ({len(X_tr)} amostras)...")
+    pipeline.fit(X_tr, y_tr)
+    
+    # Avaliar no hold-out
+    y_val_probs = pipeline.predict_proba(X_val)[:, 1]
+    val_auc = roc_auc_score(y_val, y_val_probs)
+    logger.info(f"🏆 ROC-AUC no Hold-out de Validacao: {val_auc:.4f}")
+    
+    # Threshold otimo no hold-out
+    precisions, recalls, thresholds = precision_recall_curve(y_val, y_val_probs)
+    f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-10)
+    best_idx = np.argmax(f1_scores)
+    best_threshold = float(thresholds[best_idx])
+    
+    logger.info(f"🎯 Melhor Threshold (Validacao): {best_threshold:.4f}")
+    
+    # -------------------------------------------------------------------------
+    # RETREINAR COM 100% DOS DADOS
+    # -------------------------------------------------------------------------
+    logger.info(f"🚀 Retreinando com 100% dos dados ({len(X_train)} amostras)...")
     pipeline.fit(X_train, y_train)
     
-    # 3. Avaliação no Treino (Para registro)
-    y_probs = pipeline.predict_proba(X_train)[:, 1]
-    auc_score = roc_auc_score(y_train, y_probs)
-    
-    logger.info(f"🏆 ROC-AUC no Treino (Estimado): {auc_score:.4f}")
-    
-    # Salvar Modelo
+    # Salvar
     latest_model_path = MODELS_DIR / "if_best_model.pkl"
     versioned_model_path = MODELS_DIR / f"model_if_{run_id}.pkl"
     joblib.dump(pipeline, latest_model_path)
     joblib.dump(pipeline, versioned_model_path)
     
-    # 4. Threshold Tuning
-    precisions, recalls, thresholds = precision_recall_curve(y_train, y_probs)
-    f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-10)
-    best_idx = np.argmax(f1_scores)
-    best_threshold = thresholds[best_idx]
+    save_threshold(best_threshold, "if", MODELS_DIR)
     
-    logger.info(f"🎯 Melhor Threshold Normalizado: {best_threshold:.4f}")
+    # Log
+    log_experiment(
+        run_id=run_id,
+        model_type="IsolationForest",
+        best_params={"n_estimators": 200, "contamination": 0.01},
+        best_cv_score=val_auc,
+        best_threshold=best_threshold,
+        model_path=versioned_model_path.name,
+        reports_dir=REPORTS_DIR,
+        smote_strategy=None,
+        extra_data={"evaluation_method": "hold-out validation"}
+    )
     
-    with open(MODELS_DIR / "if_threshold.txt", "w") as f:
-        f.write(str(best_threshold))
-
-    # 5. Log
-    experiment_data = {
-        "run_id": run_id,
-        "timestamp": datetime.datetime.now().isoformat(),
-        "model_type": "IsolationForest",
-        "smote_strategy": None,
-        "best_params": {"n_estimators": 200, "contamination": 0.01},
-        "best_cv_score": auc_score, # Usando score de treino como proxy
-        "best_threshold": float(best_threshold),
-        "model_path": str(versioned_model_path.name)
-    }
-    
-    experiments_log_path = REPORTS_DIR / "experiments_log.json"
-    if experiments_log_path.exists():
-        with open(experiments_log_path, "r") as f:
-            try:
-                history = json.load(f)
-            except: history = []
-    else:
-        history = []
-        
-    history.append(experiment_data)
-    with open(experiments_log_path, "w") as f:
-        json.dump(history, f, indent=4)
-        
-    # Salvar params simples
     with open(MODELS_DIR / "if_best_model_params.txt", "w") as f:
-        f.write(f"Run ID: {run_id}\nROC-AUC: {auc_score:.4f}\nParams: n_estimators=200, contamination=0.01")
+        f.write(f"Run ID: {run_id}\nROC-AUC (Validation): {val_auc:.4f}\n")
+        f.write(f"Threshold: {best_threshold:.4f}\nParams: n_estimators=200, contamination=0.01\n")
 
 if __name__ == "__main__":
     train_isolation_forest()

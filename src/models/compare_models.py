@@ -158,9 +158,10 @@ def compare_algorithms():
     # --------------------------------------------------------------------------
     scoring_metrics = {
         'recall': 'recall',       # Capacidade de encontrar TODAS as fraudes
-        'precision': 'precision', # Capacidade de não alertar alarmes falsos
-        'f1': 'f1',               # Equilíbrio entre Recall e Precision
-        'roc_auc': 'roc_auc'      # Capacidade geral de separar classes (independente do threshold)
+        'precision': 'precision', # Capacidade de nao alertar alarmes falsos
+        'f1': 'f1',               # Equilibrio entre Recall e Precision
+        'roc_auc': 'roc_auc',     # Capacidade geral de separar classes (independente do threshold)
+        'average_precision': 'average_precision'  # PR-AUC: Mais informativa para dados desbalanceados
     }
     
     results_list = []
@@ -246,7 +247,7 @@ def compare_algorithms():
     # Cria gráfico de barras comparativo.
     # --------------------------------------------------------------------------
     # Transformação "melt" para formato longo, necessário para o Seaborn plotar barras agrupadas
-    metrics_to_plot = ['roc_auc_mean', 'recall_mean', 'precision_mean', 'f1_mean']
+    metrics_to_plot = ['roc_auc_mean', 'average_precision_mean', 'recall_mean', 'precision_mean', 'f1_mean']
     
     plt.figure(figsize=(14, 8))
     melted = results_df.melt(id_vars="Model", value_vars=metrics_to_plot, var_name="Metric", value_name="Score")
