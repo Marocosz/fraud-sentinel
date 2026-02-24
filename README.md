@@ -5,7 +5,78 @@
 
 ---
 
+# Visao Geral do Projeto
+
+| Item                     | Descricao                                                                                                                                                                                                                                                                                             |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Nome**                 | Fraud Sentinel                                                                                                                                                                                                                                                                                        |
+| **Objetivo Principal**   | Desenvolver um pipeline completo de Machine Learning para detectar fraudes em aberturas de contas bancarias, priorizando a maximizacao do Recall (capturar o maximo de fraudes) com controle de Precision (minimizar falsos alarmes).                                                                 |
+| **Problema que Resolve** | Fraudes bancarias na abertura de contas causam prejuizos financeiros massivos. O sistema automatiza a triagem de solicitacoes, classificando-as como legitimas ou fraudulentas com base em padroes historicos de comportamento e atributos sociodemograficos.                                         |
+| **Publico-Alvo**         | Cientistas de dados, engenheiros de ML, analistas de fraude e instituicoes financeiras que necessitam de um motor de decisao anti-fraude baseado em dados. Tambem serve como projeto de portfolio academico em Data Science.                                                                          |
+| **Contexto de Uso**      | O sistema opera sobre o dataset Bank Account Fraud (BAF) Suite, publicado no NeurIPS 2022, que simula dados reais de aberturas de conta com rotulagem binaria (0 = legitima, 1 = fraude). A taxa de fraude e extremamente baixa (~1%), exigindo tecnicas especializadas de balanceamento e avaliacao. |
+| **Tarefa de Mineracao**  | Classificacao Binaria Supervisionada                                                                                                                                                                                                                                                                  |
+| **Metodologia**          | CRISP-DM (Cross-Industry Standard Process for Data Mining)                                                                                                                                                                                                                                            |
+
+---
+
+# Como Executar o Projeto
+
+## Requisitos
+
+- Python 3.12+
+- ~8GB RAM (recomendado para dataset BAF completo)
+- Windows 10/11 (testado)
+
+## Instalacao
+
+```bash
+git clone https://github.com/Marocosz/fraud-sentinel.git
+cd fraud-sentinel
+python -m venv venvmine
+venvmine\Scripts\activate    # Windows
+pip install -r requirements.txt
+```
+
+## Preparacao dos Dados
+
+Baixe o dataset BAF Suite do Kaggle e coloque em `data/raw/Base.csv`:
+
+- URL: https://www.kaggle.com/datasets/sgpjesus/bank-account-fraud-dataset-neurips-2022
+
+## Execucao
+
+```bash
+# Pipeline completo (primeira vez)
+python main.py
+
+# Sem EDA (mais rapido)
+python main.py --skip-eda
+
+# Apenas modelos especificos
+python main.py --skip-eda --models xgb,rf
+
+# Com benchmark de algoritmos (demorado)
+python main.py --compare-models
+
+# Com simulacao de producao
+python main.py --predict
+
+# Sem limpeza (reuso de dados processados)
+python main.py --no-reset --skip-eda --models xgb
+
+# Ajuste fino de Precision
+python src/models/force_precision.py 0.20
+```
+
+---
+
 - [Fraud Sentinel - Sistema Avancado de Deteccao de Fraudes Bancarias](#fraud-sentinel---sistema-avancado-de-deteccao-de-fraudes-bancarias)
+- [Visao Geral do Projeto](#visao-geral-do-projeto)
+- [Como Executar o Projeto](#como-executar-o-projeto)
+  - [Requisitos](#requisitos)
+  - [Instalacao](#instalacao)
+  - [Preparacao dos Dados](#preparacao-dos-dados)
+  - [Execucao](#execucao)
 - [1 Resultados da Analise Exploratoria (EDA)](#1-resultados-da-analise-exploratoria-eda)
   - [1.1 Carga de Dados](#11-carga-de-dados)
   - [1.2 Estrutura e Qualidade dos Dados](#12-estrutura-e-qualidade-dos-dados)
@@ -24,7 +95,6 @@
     - [1.11.3 Risco por Status de Moradia (`housing_status`)](#1113-risco-por-status-de-moradia-housing_status)
     - [1.11.4 Risco por Origem da Solicitacao (`source`)](#1114-risco-por-origem-da-solicitacao-source)
     - [1.11.5 Risco por Sistema Operacional (`device_os`)](#1115-risco-por-sistema-operacional-device_os)
-- [2. Visao Geral do Projeto](#2-visao-geral-do-projeto)
 - [2. Arquitetura Geral](#2-arquitetura-geral)
   - [2.1 Tipo de Arquitetura](#21-tipo-de-arquitetura)
   - [2.2 Diagrama da Arquitetura](#22-diagrama-da-arquitetura)
@@ -69,11 +139,6 @@
   - [8.4 Amostragem Estratificada para GridSearch](#84-amostragem-estratificada-para-gridsearch)
   - [8.5 Informacao Mutua (MI)](#85-informacao-mutua-mi)
 - [9. Configuracoes e Variaveis de Ambiente](#9-configuracoes-e-variaveis-de-ambiente)
-- [10. Como Executar o Projeto](#10-como-executar-o-projeto)
-  - [10.1 Requisitos](#101-requisitos)
-  - [10.2 Instalacao](#102-instalacao)
-  - [10.3 Preparacao dos Dados](#103-preparacao-dos-dados)
-  - [10.4 Execucao](#104-execucao)
 - [11. Estrategia de Logs e Monitoramento](#11-estrategia-de-logs-e-monitoramento)
   - [11.1 Logs em Console](#111-logs-em-console)
   - [11.2 Log Persistido (experiments_log.json)](#112-log-persistido-experiments_logjson)
@@ -90,7 +155,7 @@
   - [14.1 Sugestoes Estruturais](#141-sugestoes-estruturais)
   - [14.2 Melhorias de Performance](#142-melhorias-de-performance)
   - [14.3 Refatoracoes Recomendadas](#143-refatoracoes-recomendadas)
-- [15. Analise Critica da Arquitetura](#15-analise-critica-da-arquitetura)
+- [15. Limitações Conhecidas e Trabalhos Futuros](#15-limitações-conhecidas-e-trabalhos-futuros)
   - [15.1 Codigo Duplicado (Alto Impacto)](#151-codigo-duplicado-alto-impacto)
   - [15.2 Chave Duplicada no Dicionario](#152-chave-duplicada-no-dicionario)
   - [15.3 Variavel Nao Utilizada](#153-variavel-nao-utilizada)
@@ -100,6 +165,10 @@
   - [15.7 Acoplamento com Sistema de Arquivos](#157-acoplamento-com-sistema-de-arquivos)
 
 # 1 Resultados da Analise Exploratoria (EDA)
+
+<details>
+<summary>Clique para expandir a Análise Exploratória de Dados (EDA)</summary>
+
 
 A partir do arquivo `generate_eda_report.py` criamos um relatorio textual (`reports/eda_summary.txt`) com o sumario completo da base de dados. A seguir estao todas as informacoes e descricoes geradas a partir da analise da base inicial.
 
@@ -393,21 +462,10 @@ Solicitacoes via TELEAPP apresentam taxa de fraude 44% maior que via INTERNET.
 
 Dispositivos com sistema operacional Windows apresentam a maior taxa de fraude (2.47%), mais que o dobro da media geral.
 
----
-
-# 2. Visao Geral do Projeto
-
-| Item                     | Descricao                                                                                                                                                                                                                                                                                             |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Nome**                 | Fraud Sentinel                                                                                                                                                                                                                                                                                        |
-| **Objetivo Principal**   | Desenvolver um pipeline completo de Machine Learning para detectar fraudes em aberturas de contas bancarias, priorizando a maximizacao do Recall (capturar o maximo de fraudes) com controle de Precision (minimizar falsos alarmes).                                                                 |
-| **Problema que Resolve** | Fraudes bancarias na abertura de contas causam prejuizos financeiros massivos. O sistema automatiza a triagem de solicitacoes, classificando-as como legitimas ou fraudulentas com base em padroes historicos de comportamento e atributos sociodemograficos.                                         |
-| **Publico-Alvo**         | Cientistas de dados, engenheiros de ML, analistas de fraude e instituicoes financeiras que necessitam de um motor de decisao anti-fraude baseado em dados. Tambem serve como projeto de portfolio academico em Data Science.                                                                          |
-| **Contexto de Uso**      | O sistema opera sobre o dataset Bank Account Fraud (BAF) Suite, publicado no NeurIPS 2022, que simula dados reais de aberturas de conta com rotulagem binaria (0 = legitima, 1 = fraude). A taxa de fraude e extremamente baixa (~1%), exigindo tecnicas especializadas de balanceamento e avaliacao. |
-| **Tarefa de Mineracao**  | Classificacao Binaria Supervisionada                                                                                                                                                                                                                                                                  |
-| **Metodologia**          | CRISP-DM (Cross-Industry Standard Process for Data Mining)                                                                                                                                                                                                                                            |
+</details>
 
 ---
+
 
 # 2. Arquitetura Geral
 
@@ -989,56 +1047,6 @@ O transformer implementa `fit()` para aprender limites de clipping no conjunto d
 
 ---
 
-# 10. Como Executar o Projeto
-
-## 10.1 Requisitos
-
-- Python 3.12+
-- ~8GB RAM (recomendado para dataset BAF completo)
-- Windows 10/11 (testado)
-
-## 10.2 Instalacao
-
-```bash
-git clone https://github.com/Marocosz/fraud-sentinel.git
-cd fraud-sentinel
-python -m venv venvmine
-venvmine\Scripts\activate    # Windows
-pip install -r requirements.txt
-```
-
-## 10.3 Preparacao dos Dados
-
-Baixe o dataset BAF Suite do Kaggle e coloque em `data/raw/Base.csv`:
-
-- URL: https://www.kaggle.com/datasets/sgpjesus/bank-account-fraud-dataset-neurips-2022
-
-## 10.4 Execucao
-
-```bash
-# Pipeline completo (primeira vez)
-python main.py
-
-# Sem EDA (mais rapido)
-python main.py --skip-eda
-
-# Apenas modelos especificos
-python main.py --skip-eda --models xgb,rf
-
-# Com benchmark de algoritmos (demorado)
-python main.py --compare-models
-
-# Com simulacao de producao
-python main.py --predict
-
-# Sem limpeza (reuso de dados processados)
-python main.py --no-reset --skip-eda --models xgb
-
-# Ajuste fino de Precision
-python src/models/force_precision.py 0.20
-```
-
----
 
 # 11. Estrategia de Logs e Monitoramento
 
@@ -1137,7 +1145,7 @@ Cada treinamento appenda um registro contendo:
 
 ---
 
-# 15. Analise Critica da Arquitetura
+# 15. Limitações Conhecidas e Trabalhos Futuros
 
 ## 15.1 Codigo Duplicado (Alto Impacto)
 
