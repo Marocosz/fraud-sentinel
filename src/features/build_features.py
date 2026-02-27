@@ -7,6 +7,12 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, RobustScaler
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.impute import SimpleImputer
+try:
+    from imblearn.pipeline import Pipeline as ImbPipeline
+    from imblearn.under_sampling import RandomUnderSampler
+    HAS_IMBLEARN = True
+except ImportError:
+    HAS_IMBLEARN = False
 from src.config import PROCESSED_DATA_DIR, MODELS_DIR, RANDOM_STATE
 
 # ==============================================================================
@@ -332,18 +338,21 @@ def get_preprocessor(X):
     return preprocessor
 
 
-def build_pipeline(X_train, model):
+def build_pipeline(X_train, model, undersampling_ratio=None):
     """
     Constroi o pipeline completo com Feature Engineering (EDA-driven) + Preprocessing + Modelo.
 
-    Esta funcao centraliza a criacao do pipeline de 3 etapas:
+    Esta funcao centraliza a criacao do pipeline. Pode incluir etapas como:
     1. EDAFeatureEngineer: Engenharia de features baseada nos insights do EDA
     2. ColumnTransformer: Preprocessamento (Scaler, Imputer, OneHot)
-    3. Modelo: Algoritmo de classificacao
+    3. RandomUnderSampler (Opcional): Aplicado APENAS as folds de treino no CV, previne data leakage
+    4. Modelo: Algoritmo de classificacao
 
     Args:
         X_train (pd.DataFrame): Dados de treino brutos (para detectar tipos de coluna).
         model: Instancia do classificador (LogReg, XGBoost, etc).
+        undersampling_ratio (float, optional): Razao desejada (fraudes / normais). 
+            Ex: 0.5 para ter 10k fraudes e 20k normais (1:2 ratio). Se None, usa-se a base inteira.
 
     Returns:
         Pipeline: Pipeline completo pronto para .fit() ou GridSearchCV.
@@ -356,12 +365,33 @@ def build_pipeline(X_train, model):
     # Constroi o preprocessor baseado nas colunas pos-engenharia
     preprocessor = get_preprocessor(X_transformed)
 
-    # Pipeline final de 3 etapas
-    pipeline = Pipeline(steps=[
-        ('eda_features', eda_engineer),
-        ('preprocessor', preprocessor),
-        ('model', model)
-    ])
+    # Pipeline final de 3 ou 4 etapas
+    if undersampling_ratio is not None:
+        if not HAS_IMBLEARN:
+            raise ImportError(
+                "CRITICO: O pacote imbalanced-learn nao esta instalado. "
+                "Para usar o parametro undersampling_ratio (Opcao A), execute: pip install imbalanced-learn"
+            )
+        
+        print(f"   [FE] Aplicando RandomUnderSampler (ratio={undersampling_ratio}) de forma robusta e otimizada...")
+        sampler = RandomUnderSampler(sampling_strategy=undersampling_ratio, random_state=RANDOM_STATE)
+        
+        # O ImbPipeline e fundamental pois ele aplica o sampler APENAS no X_train
+        # durante a validacao cruzada, garantindo que o X_test continue representando
+        # a populacao real, evitando que as metricas sejam mascaradas.
+        pipeline = ImbPipeline(steps=[
+            ('eda_features', eda_engineer),
+            ('preprocessor', preprocessor),
+            ('sampler', sampler),
+            ('model', model)
+        ])
+    else:
+        # Modo Classico / Padrao
+        pipeline = Pipeline(steps=[
+            ('eda_features', eda_engineer),
+            ('preprocessor', preprocessor),
+            ('model', model)
+        ])
 
     return pipeline
 

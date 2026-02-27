@@ -72,16 +72,20 @@ MODEL_CONFIG = {
     "sample_size": 100000
 }
 
-def train_xgboost():
+def train_xgboost(undersampling_ratio=None):
     """
     Inicializa o treinamento delegando o processo ao BaseTrainer.
     
-    - Por que ela existe: Encapsular a execução em uma função importável através do orquestrador main.py.
-    - Quando é chamada: No decorrer da execução rotineira do torneio ou quando o argumento CLI `--models xgb` é passado.
-    - Dados recebidos: Nenhum (Recupera do MODEL_CONFIG global).
-    - Dados retornados: Nenhum. Efetua a gravação de arquivos por debaixo dos panos pelo BaseTrainer.
+    - Por que ela existe: Encapsular a execucao em uma funcao importavel atraves do orquestrador main.py.
+    - Quando e chamada: No decorrer da execucao rotineira do torneio ou quando o argumento CLI `--models xgb` e passado.
+    - Dados recebidos: undersampling_ratio opcional.
+    - Dados retornados: Nenhum. Efetua a gravacao de arquivos por debaixo dos panos pelo BaseTrainer.
     """
-    trainer = BaseTrainer("xgb", MODEL_CONFIG)
+    config = MODEL_CONFIG.copy()
+    if undersampling_ratio is not None:
+        config["undersampling_ratio"] = undersampling_ratio
+        
+    trainer = BaseTrainer("xgb", config)
     trainer.train()
 
 if __name__ == "__main__":

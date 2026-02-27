@@ -50,7 +50,7 @@ MODEL_CONFIG = {
     "sample_size": 200000
 }
 
-def train_decision_tree():
+def train_decision_tree(undersampling_ratio=None):
     """
     Desencadeia a rotina de preenchimento, processamento, busca exaustiva (GridCV) e escoragem
     pela classe BaseTrainer generalizada.
@@ -58,7 +58,11 @@ def train_decision_tree():
     - Por que ela existe: Ser o módulo-gatilho importado pelo `main.py`
     - Quando é chamada: No fluxo de Torneio ou seleção manual CLI por `--models dt`.
     """
-    trainer = BaseTrainer("dt", MODEL_CONFIG)
+    config = MODEL_CONFIG.copy()
+    if undersampling_ratio is not None:
+        config["undersampling_ratio"] = undersampling_ratio
+        
+    trainer = BaseTrainer("dt", config)
     trainer.train()
 
 if __name__ == "__main__":

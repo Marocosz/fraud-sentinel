@@ -65,7 +65,7 @@ MODEL_CONFIG = {
     "sample_size": 200000
 }
 
-def train_random_forest():
+def train_random_forest(undersampling_ratio=None):
     """
     Inicializa o treinamento delegando o processo ao BaseTrainer.
     
@@ -73,7 +73,11 @@ def train_random_forest():
     - Quando é chamada: No pipeline principal quando `--models rf` é incluído.
     - Estrutura: Instancia a classe unificada de pipeline enviando a `MODEL_CONFIG`
     """
-    trainer = BaseTrainer("rf", MODEL_CONFIG)
+    config = MODEL_CONFIG.copy()
+    if undersampling_ratio is not None:
+        config["undersampling_ratio"] = undersampling_ratio
+        
+    trainer = BaseTrainer("rf", config)
     trainer.train()
 
 if __name__ == "__main__":

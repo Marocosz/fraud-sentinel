@@ -72,14 +72,18 @@ MODEL_CONFIG = {
     "use_sample_weight": True
 }
 
-def train_mlp():
+def train_mlp(undersampling_ratio=None):
     """
     Função de delegação da inferência que embute as configurações na Orquestração da classe base.
     
     - Por que ela existe: Ser a peça única de compatibilidade com chamadas abstratas e CLI's via subrotinas.
     - Quando é chamada: Pela bateria contínua no `--models mlp` de Torneios.
     """
-    trainer = BaseTrainer("mlp", MODEL_CONFIG)
+    config = MODEL_CONFIG.copy()
+    if undersampling_ratio is not None:
+        config["undersampling_ratio"] = undersampling_ratio
+        
+    trainer = BaseTrainer("mlp", config)
     trainer.train()
 
 if __name__ == "__main__":

@@ -57,14 +57,18 @@ MODEL_CONFIG = {
     "sample_size": 100000
 }
 
-def train_logistic_regression():
+def train_logistic_regression(undersampling_ratio=None):
     """
     Função empacotadora de execução estendida.
     
     - O que faz: Assoscia a predefinição Logistic ao fluxo unificador abstrato BaseTrainer.
     - Quando invocada: Pipeline Principal ou individual (`--models logreg`).
     """
-    trainer = BaseTrainer("logreg", MODEL_CONFIG)
+    config = MODEL_CONFIG.copy()
+    if undersampling_ratio is not None:
+        config["undersampling_ratio"] = undersampling_ratio
+        
+    trainer = BaseTrainer("logreg", config)
     trainer.train()
 
 if __name__ == "__main__":

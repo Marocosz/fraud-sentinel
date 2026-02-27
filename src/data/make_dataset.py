@@ -80,7 +80,7 @@ def optimize_memory_usage(df):
     print(f"   💾 Memória após otimização: {end_mem:.2f} MB (Redução de {reduction:.1f}%)")
     return df
 
-def load_and_split_data():
+def load_and_split_data(max_samples=None):
     """
     Função gerente da ingestão inicial do Banco de Dados / Data Lake Pessoal.
     
@@ -100,6 +100,11 @@ def load_and_split_data():
     # Carrega CSV
     df = pd.read_csv(RAW_DATA_PATH)
     print(f"   ✅ Dataset carregado: {df.shape[0]} linhas, {df.shape[1]} colunas")
+
+    # Amostragem geral caso solicitado (--max-samples)
+    if max_samples is not None and max_samples < len(df):
+        print(f"✂️  Reduzindo dataset de {len(df)} para {max_samples} registros fixos aleatórios...")
+        df = df.sample(n=max_samples, random_state=RANDOM_STATE)
 
     # Validação Básica
     if TARGET_COL not in df.columns:

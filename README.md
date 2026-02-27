@@ -41,6 +41,12 @@ python main.py --skip-eda --models xgb,rf
 # Com simulacao de producao
 python main.py --predict
 
+# Execucao limitando a base crua a 100 mil registros (Ideal para Testes Rapidos DEV)
+python main.py --max-samples 100000
+
+# Execucao com Random Undersampling Teorico (Ex: 0.5 mantem as fraudes e sorteia o dobro de sadios no Treino)
+python main.py --undersampling-ratio 0.5
+
 # Sem limpeza (reuso de dados processados)
 python main.py --no-reset --skip-eda --models xgb
 
@@ -442,8 +448,8 @@ O Fraud Sentinel adota uma **arquitetura modular orientada a pipeline**, organiz
 
 ```
 fraud-sentinel/
-|-- main.py                    # Orquestrador principal (CLI)
-|-- requirements.txt           # Dependencias do projeto
+|-- main.py                    # Orquestrador principal (CLI paramétrico: --max-samples, --undersampling-ratio)
+|-- requirements.txt           # Dependencias do projeto (incluindo scikit-learn e imbalanced-learn)
 |-- ideia_inicial.md           # Documento de concepcao e historico de experimentos
 |-- .gitignore                 # Regras de exclusao do Git
 |-- .env                       # Variaveis de ambiente (vazio)
@@ -526,7 +532,7 @@ Identificadores de modelos: `logreg`, `dt`, `rf`, `xgb`, `mlp`, `if`.
 
 | Atributo     | Descricao                                                                                   |
 | ------------ | ------------------------------------------------------------------------------------------- |
-| **Funcoes**  | `optimize_memory_usage(df)`, `load_and_split_data()`                                        |
+| **Funcoes**  | `optimize_memory_usage(df)`, `load_and_split_data(max_samples=None)`                        |
 | **Entrada**  | `data/raw/Base.csv`                                                                         |
 | **Saida**    | `data/processed/{X_train, X_test, y_train, y_test}.csv`                                     |
 | **Excecoes** | `FileNotFoundError` se Base.csv nao existir; `ValueError` se coluna alvo nao for encontrada |
@@ -534,11 +540,12 @@ Identificadores de modelos: `logreg`, `dt`, `rf`, `xgb`, `mlp`, `if`.
 Fluxo interno:
 
 1. Carrega CSV bruto com `pd.read_csv`
-2. Valida existencia da coluna target (fallback para `is_fraud`)
-3. Aplica downcasting de tipos (`float64`->`float32`, `int64`->`int8`) para otimizar RAM
+2. Aplica truncate limitador da base geral via `df.sample()` (se `--max-samples` ativado em DEV)
+3. Valida existencia da coluna target (fallback para `is_fraud`)
 4. Separa features (X) e target (y)
-5. Executa `train_test_split` com `stratify=y` para manter proporcao de fraude
-6. Salva 4 CSVs processados
+5. Executa `train_test_split` com `stratify=y` para manter proporcao de fraude em Teste Cego
+6. Executa Otimização de downcasting em chunks descolados de tempo real
+7. Salva 4 PKLs processados otimizados
 
 ### src/features/build_features.py - Pipeline de Features (EDA-Driven)
 
@@ -566,9 +573,14 @@ O pipeline foi reestruturado com base nos insights da Analise Exploratoria (EDA)
 - Pipeline numerico: `SimpleImputer(median)` -> `RobustScaler()`
 - Pipeline categorico: `SimpleImputer(constant='missing')` -> `OneHotEncoder(handle_unknown='ignore')`
 
-**Camada 3 - Modelo** (classificador):
+**Camada 3 - RandomUnderSampler** (Amostragem Inteligente _imblearn_):
 
-- O classificador especifico de cada modelo (LogReg, XGBoost, RF, etc.)
+- (Se ativado via parâmetro global) Instancia `imblearn.pipeline.Pipeline`.
+- Frita amostras em proporções `Ratio` exclusivamente durante os _Folds_ estritos do GridSearchCV no X_train, blindando as métricas de validação real mantendo seus datasets intocados.
+
+**Camada 4 - Modelo** (classificador):
+
+- O classificador especifico de cada modelo instanciado que obedece todo o histórico anterior (LogReg, XGBoost, RF, etc.)
 
 Decisao tecnica: O `EDAFeatureEngineer` e um `BaseEstimator` do scikit-learn, sendo serializado junto com o modelo via `joblib.dump()`. Isso garante que as mesmas transformacoes sejam aplicadas automaticamente em treino, validacao cruzada e inferencia.
 
@@ -856,7 +868,7 @@ LogReg e XGBoost usam amostra de 100k linhas para GridSearch (economia de horas 
 
 A EDA calcula Mutual Information com `mutual_info_classif` para ranquear features por capacidade preditiva, capturando relacoes nao-lineares que correlacao de Pearson/Spearman ignora.
 
-## 7.6 EDAFeatureEngineer (Feature Engineering Orientado por Dados)
+## 7.6 EDAFeatureEngineer e o Hibridismo imblearn (Feature Engineering Orientado por Dados)
 
 O `EDAFeatureEngineer` e um transformer customizado do scikit-learn que aplica 5 transformacoes baseadas nos insights da EDA, em sequencia:
 
@@ -880,6 +892,10 @@ Dados Brutos (31 features)
     |
     v
 Dados Engenheirados (38 features)
+    |
+    v
+6. Opcional (Se Ratio Ativado): Injeção do RandomUnderSampler na Pipeline hibrida do imblearn.
+   (Apenas em tempo de ajuste de Validação Cruzada, jamais em Inferência)
 ```
 
 O transformer implementa `fit()` para aprender limites de clipping no conjunto de treino e `transform()` para aplicar todas as transformacoes. Por ser um `BaseEstimator`, e automaticamente serializado junto com o modelo.
@@ -1001,6 +1017,8 @@ Enfrentamos de duas formas cruzadas:
    O projeto experimentou criar fraude falsa via _SMOTE (Synthetic Minority Over-sampling Technique)_. A matemática por trás espalha dados artificiais utilizando KNN vizinhos ao redor das fraudes. Contudo, percebemos por testes práticos de laboratório o efeito **Fábrica de Fantasmas**: O SMOTE gerava "fraudes redondas e ideais", causando _Over-Confidence_ artificial nas Árvores de Classificação ao validarem em dados de produção, produzindo falsos alarmes generalizados nos clientes bons. Desligamos a técnica.
 2. **Implementação de Cost-Sensitive Learning (Pesos Heurísticos)**
    Ativamos o método analítico: Nenhuma linha tabular é artificialmente adicionada ou excluída. Em contrapartida, ensinamos para a Máquina uma matriz punitiva de dor. Na função perda _(Loss Function/LogLoss)_ do nosso XGBoost, o erro em classificar um cidadão bom como Fraude causa à derivada penalidade padrão `1.0`. Todavia, classificar o Fraudador como Cliente Bom inflige penalidade severa multiplicada (`scale_pos_weight = ~90`). Esse arranjo inclina brutalmente as forças da Descida de Gradiente (Gradient Descent), forçando a IA estritamente à cautela rigorosa buscando o menor sinal possível da classe escassa para evitar sua penalização astronômica.
+3. **Random Undersampling Robusto (A Biblioteca imbalanced-learn)**
+   Para além da matriz de custos, foi acoplada ao sistema a capacidade de parametrizar o rebalanceamento dinâmico estrito de classes com perda induzida de dados normais via **CLI (`--undersampling-ratio`)**. O motor orquestrador substitui a "Pipeline Clássica" pela _ImbPipeline_ (`imbalanced-learn`). Matemeticamente isso garante a blindagem perfeita contra o **Data Leakage na Validação**. A subamostragem (ex: 10 mil fraudes e 20 mil classes sadias) opera sua limpeza _apenas_ e _estritamente_ nos Folds de Treino (Training Splits). O sub-pacote de Teste local que afere as métricas permanece hiper-desbalanceado como no Mundo Real, forçando o motor de busca (GridSearchCV) a validar a verdade inalterada sem ilusões de um ambiente equalitário falsificado.
 
 ---
 

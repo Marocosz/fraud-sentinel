@@ -99,12 +99,16 @@ MODEL_CONFIG = {
     "search_type": None
 }
 
-def train_isolation_forest():
+def train_isolation_forest(undersampling_ratio=None):
     """
     Constrói a rotina sem o GridSearch ativado (Anomaly Detection não possui labels reais pra Hyper-tunning 
     num fluxo puro).
     """
-    trainer = BaseTrainer("if", MODEL_CONFIG)
+    config = MODEL_CONFIG.copy()
+    if undersampling_ratio is not None:
+        config["undersampling_ratio"] = undersampling_ratio
+        
+    trainer = BaseTrainer("if", config) # Assuming CustomIFTrainer is a typo and should be BaseTrainer
     trainer.train()
 
 if __name__ == "__main__":

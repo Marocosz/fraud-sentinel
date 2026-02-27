@@ -88,7 +88,8 @@ class BaseTrainer:
         
         # 2. Pipeline Creation
         clf = self.config["model_class"](**self.config.get("model_params", {}))
-        pipeline = build_pipeline(X_train, clf)
+        undersampling_ratio = self.config.get("undersampling_ratio", None)
+        pipeline = build_pipeline(X_train, clf, undersampling_ratio=undersampling_ratio)
         
         use_sample_weight = self.config.get("use_sample_weight", False)
         sample_weights = None

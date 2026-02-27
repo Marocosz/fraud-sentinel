@@ -105,7 +105,7 @@ def get_model_config():
     }
 
 
-def train_lightgbm():
+def train_lightgbm(undersampling_ratio=None):
     """
     Treina o modelo LightGBM com otimizacao completa de hiperparametros.
     *Detalhe Arquitetural: Não herda de `BaseTrainer` porque trata-se de um Script Alternativo/Legado

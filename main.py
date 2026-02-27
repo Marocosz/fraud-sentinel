@@ -117,6 +117,22 @@ def main():
             "Exemplo: --models xgb,lgbm,stacking"
         )
     )
+    parser.add_argument(
+        "--undersampling-ratio", type=float, default=None,
+        help=(
+            "Razao opcional de Undersampling (Fraudes / Não-Fraudes). "
+            "Ex: 0.5 mantem todas as fraudes (10k) e subamostra as classes normais para 20k (1:2). "
+            "Se None (padrao), treina rodando com a base de dados em sua totalidade."
+        )
+    )
+    parser.add_argument(
+        "--max-samples", type=int, default=None,
+        help=(
+            "Limita o numero MÁXIMO de linhas da base original importada. "
+            "Util em ambiente de dev para rodar o fluxo completo em minutos. "
+            "Ex: --max-samples 100000"
+        )
+    )
     
     args = parser.parse_args()
 
@@ -130,8 +146,11 @@ def main():
         print("⚠️ [MAESTRO] Limpeza pulada (--no-reset).")
 
     # 2. DATA ENGINEERING
-    print("\n🎹 [MAESTRO] 1. Movimento: Data Engineering (make_dataset.py)")
-    load_and_split_data()
+    print(f"\n🎹 [MAESTRO] 1. Movimento: Data Engineering (make_dataset.py)")
+    max_samples = args.max_samples
+    if max_samples:
+        print(f"   [FE] Limitando a base geral de dados a {max_samples} registros totais (--max-samples).")
+    load_and_split_data(max_samples=max_samples)
 
     # 3. EDA
     if not args.skip_eda:
@@ -157,47 +176,51 @@ def main():
     # MODELOS INDIVIDUAIS
     # -------------------------------------------------------------------------
     
+    ur = args.undersampling_ratio
+    if ur is not None:
+        print(f"   [FE] Usando politica Global de Undersampling: ratio={ur}")
+
     # 4.1 Logistic Regression
     if "logreg" in selected_models:
         print("\n📌 [SUB-TAREFA] 4.1. Logistic Regression")
-        train_logistic_regression()
+        train_logistic_regression(undersampling_ratio=ur)
         evaluate(model_name="logreg")
 
     # 4.2 Decision Tree
     if "dt" in selected_models:
         print("\n📌 [SUB-TAREFA] 4.2. Decision Tree")
-        train_decision_tree()
+        train_decision_tree(undersampling_ratio=ur)
         evaluate(model_name="dt")
 
     # 4.3 Random Forest
     if "rf" in selected_models:
         print("\n📌 [SUB-TAREFA] 4.3. Random Forest")
-        train_random_forest()
+        train_random_forest(undersampling_ratio=ur)
         evaluate(model_name="rf")
 
     # 4.4 XGBoost
     if "xgb" in selected_models:
         print("\n📌 [SUB-TAREFA] 4.4. XGBoost")
-        train_xgboost()
+        train_xgboost(undersampling_ratio=ur)
         evaluate(model_name="xgb")
         
     # 4.5 MLP (Neural Network)
     if "mlp" in selected_models:
         print("\n📌 [SUB-TAREFA] 4.5. MLP Neural Network")
-        train_mlp()
+        train_mlp(undersampling_ratio=ur)
         evaluate(model_name="mlp")
         
     # 4.6 Isolation Forest
     if "if" in selected_models:
         print("\n📌 [SUB-TAREFA] 4.6. Isolation Forest (Anomaly Detection)")
-        train_isolation_forest()
+        train_isolation_forest(undersampling_ratio=ur)
         evaluate(model_name="if")
     
     # 4.7 LightGBM (NOVO)
     if "lgbm" in selected_models:
         if HAS_LIGHTGBM:
             print("\n📌 [SUB-TAREFA] 4.7. LightGBM")
-            train_lightgbm()
+            train_lightgbm(undersampling_ratio=ur)
             evaluate(model_name="lgbm")
         else:
             print("\n⚠️ LightGBM nao disponivel. Instale: pip install lightgbm")
