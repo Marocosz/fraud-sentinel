@@ -19,32 +19,25 @@ from src.config import PROCESSED_DATA_DIR, MODELS_DIR, RANDOM_STATE
 # ARQUIVO: build_features.py
 #
 # OBJETIVO:
-#   Construir o pipeline de transformacao de features (Feature Engineering Automatico).
-#   Define como numeros e textos brutos sao convertidos em matrizes matematicas
-#   que os algoritmos conseguem entender.
-#
-#   ATUALIZADO com base nos insights da Analise Exploratoria (EDA):
-#   - Remocao de features com variancia zero e MI = 0
-#   - Tratamento de valores sentinela (-1) como dados ausentes
-#   - Clipping de outliers extremos (percentis 1% e 99%)
-#   - Criacao de flags binarias de risco categorico
-#   - Feature interactions para comportamento digital
+#   Construir o pipeline de transformação de dados (Feature Engineering Automático).
+#   Mapeia como atributos textuais e numéricos crus são recodificados em matrizes 
+#   matemáticas purificadas para que os algoritmos consigam consumi-las.
 #
 # PARTE DO SISTEMA:
-#   Modulo de Engenharia de Features (Preprocessing Stage).
+#   Módulo de Engenharia de Features MLOps (Preprocessing Stage).
 #
 # RESPONSABILIDADES:
-#   - Aplicar feature engineering orientado por dados (EDA-driven).
-#   - Identificar automaticamente tipos de dados (Numerico vs Categorico).
-#   - Definir estrategias de imputacao para valores nulos (Median/Missing).
-#   - Aplicar normalizacao robusta a outliers (RobustScaler).
-#   - Aplicar codificacao One-Hot para variaveis categoricas.
-#   - Persistir o objeto transformador (preprocessor.joblib) para uso futuro
-#     na etapa de inferencia/producao.
+#   - Aplicar feature engineering matemático baseado nos insights descobertos (EDA-driven).
+#   - Excluir variáveis zeradas e lidar com falsos-positivos de sentinelas (-1).
+#   - Identificar automaticamente colunas numéricas x categóricas via Introspection.
+#   - Imputar falhas estruturais (NaNs) via Mediana ou 'missing'.
+#   - Proteger a rede neural blindando extremos milionários através do RobustScaler.
+#   - Transformar categorias textuais em matrizes densas (One-Hot).
+#   - Entregar uma classe serializada (`Pipeline`) pronta para inferência/produção.
 #
-# COMUNICACAO:
-#   - Le: data/processed/X_train.csv (para "aprender" a escala dos dados)
-#   - Escreve: models/preprocessor.joblib (Artefato reutilizavel)
+# INTEGRAÇÕES:
+#   - Lê: `X_train.pkl` em memória viva (para calibrar as matrizes de escala e OneHot).
+#   - Escreve: `preprocessor.joblib` (O motor de conversão exportado para a API de Inferência).
 # ==============================================================================
 
 
@@ -177,9 +170,20 @@ class EDAFeatureEngineer(BaseEstimator, TransformerMixin):
 
     def fit(self, X, y=None):
         """
-        Aprende os limites de clipping (percentis 1% e 99%) a partir do
-        conjunto de treino. Esses limites sao fixados e aplicados em
-        transform() para treino E teste, evitando data leakage.
+        Aprende os limites estatísticos estritos do conjunto orgânico para uso futuro
+        em inferências cegas.
+        
+        Por que existe:
+        Calibrações de escala (como achar o percentil 1% e 99% para Clipping) DEVEM OCORRER 
+        obrigatoriamente apenas nos dados de treino. Se calcularmos os percentis durante 
+        o Data Ingestion, o teste sofre Data Leakage. Este método "trava" os percentis numéricos
+        descobertos aqui, para aplicá-los passivamente no Transform depois.
+
+        Recebe:
+        X (pd.DataFrame): Dados de treinamento crús com anomalias e Outliers ainda vivos.
+
+        Retorna:
+        self: A própria instância calibada (mantendo padrão do scikit-learn).
         """
         # Otimização: Não clona todo o DataFrame em memória na inspeção
         X_work = X if isinstance(X, pd.DataFrame) else pd.DataFrame(X)
@@ -201,11 +205,22 @@ class EDAFeatureEngineer(BaseEstimator, TransformerMixin):
 
     def transform(self, X, y=None):
         """
-        Aplica todas as transformacoes EDA-driven em sequencia.
-        Retorna um DataFrame com as features engenheiradas.
+        Motor ativo do Custom Transformer. Recebe um dataset de produção e devolve
+        a matriz purificada baseada nas lógicas rígidas extraídas do EDA.
+        
+        Por que existe:
+        É o escudo anti-fraude que cria e transmuta as colunas em real-time, gerando fatores 
+        cruzados (Interações Numéricas/Booleanas) antes que o Estimador veja a luz do dia.
+
+        Recebe:
+        X (pd.DataFrame): Payload da API Web ou DataFrame inteiro de validação cruzada.
+
+        Retorna:
+        pd.DataFrame X: A base transmutada inplace (ou nova), amplificada com ~7 novas 
+        features interativas e cimentada contra valores sentinelas.
         """
         # Otimização MLOps (Mitigação de OOM): Evitamos X.copy() inteiro e mutamos apenas
-        # features que chegam. Para o sklearn, instanciamos um dataframe sob demanda e assign inplace.
+        # features que chegam. Para o sklearn, instanciamos um dataframe em memória sob demanda.
         X = X if isinstance(X, pd.DataFrame) else pd.DataFrame(X)
 
         # ----- 1. REMOCAO DE FEATURES SEM SINAL -----
@@ -280,21 +295,25 @@ class EDAFeatureEngineer(BaseEstimator, TransformerMixin):
 
 def get_preprocessor(X):
     """
-    Cria o objeto ColumnTransformer que orquestra as transformacoes de dados.
+    Sub-módulo de montagem das calhas (Pipeline Base Paramétrica).
     
-    IMPORTANTE: Esta funcao deve receber o DataFrame JA TRANSFORMADO pelo
-    EDAFeatureEngineer, pois detecta colunas automaticamente por dtype.
-    No pipeline, o EDAFeatureEngineer roda como primeiro step e o
-    ColumnTransformer como segundo.
+    Por que existe:
+    Modelos matemáticos (Salvo árvores puristas) colapsam ou enviesam com colunas de texto 
+    ou matrizes numéricas fora de proporção normalizada. Este orquestrador separa as tipagens, 
+    atribui a conversão respectiva e funde tudo num Output multidimensional cego para a Máquina.
 
-    Logica de Separacao:
-    - O scikit-learn nao adivinha tipos nativamente, entao segregamos colunas
-      por dtype (int/float -> numerico, object/category -> categorico).
-      
-    Returns:
-        ColumnTransformer: O pipeline completo pronto para .fit().
+    Regra de Negócio Crucial:
+    O dataset inputado a ele DEVE JA ASSUMIR A EXISTÊNCIA DAS NOVAS COLUNAS 
+    do EDAFeatureEngineer. Por isso invocamos um `fit_transform` prévio nas rotinas lá embaixo,
+    senão o Preprocesser ignora features importantes como 'digital_risk_score'.
+
+    Recebe:
+    X (pd.DataFrame): DataFrame pré-processado pela Engenharia inicial.
+    
+    Retorna:
+    ColumnTransformer: Objeto Sklearn de canais segregados (Num e Cat), pronto para `.fit()`.
     """
-    # Identifica colunas automaticamente baseado no tipo de dado do Pandas
+    # Inspeção e tipagem da malha dimensional (Pandas Type Introspection)
     numeric_features = X.select_dtypes(include=['int64', 'float64', 'int8', 'float32']).columns
     categorical_features = X.select_dtypes(include=['object', 'category']).columns
 
@@ -302,14 +321,12 @@ def get_preprocessor(X):
     print(f"   [FE] Features Categoricas detectadas: {len(categorical_features)}")
 
     # --------------------------------------------------------------------------
-    # PIPELINE NUMERICO
-    # 1. SimpleImputer(median): Preenche nulos com a mediana (robusto a outliers).
-    #    CRITICO apos o EDAFeatureEngineer: Os sentinelas -1 foram convertidos
-    #    em NaN, e o SimpleImputer agora calcula a mediana dos valores REAIS
-    #    (sem os -1), resultando em imputacao muito mais precisa.
-    # 2. RobustScaler: Normaliza usando (x - mediana) / IQR. 
-    #    CRITICO para fraude: Diferente do StandardScaler (media/desvio), o RobustScaler
-    #    nao e "esmagado" por valores milionarios extremos.
+    # PIPELINE NUMÉRICO: Proteção das Contas 
+    #
+    # Lógica Imputer Médio: Preenche lacunas restantes com a Mediana, ignorando as sentinelas 
+    #   (-1 cortado acima), focando no saldo do mercado. 
+    # Lógica Scaler Anti-Fraude: Emprega `RobustScaler` com limite de espalhamento Interquartil (IQR) 
+    #   para imunizar contra Bilionários/Ladrões milionários que arruinariam o `StandardScaler`.
     # --------------------------------------------------------------------------
     numeric_transformer = Pipeline(steps=[
         ('imputer', SimpleImputer(strategy='median')),
@@ -317,11 +334,11 @@ def get_preprocessor(X):
     ])
 
     # --------------------------------------------------------------------------
-    # PIPELINE CATEGORICO
-    # 1. SimpleImputer(constant): Preenche nulos com o texto 'missing'.
-    # 2. OneHotEncoder: Cria colunas binarias para cada categoria.
-    #    handle_unknown='ignore': Se aparecer uma categoria nova em producao que nao
-    #    existia no treino, o modelo ignora (tudo zero) em vez de quebrar (Crash).
+    # PIPELINE CATEGÓRICO: One-Hot Escalável
+    #
+    # Lógica de Crashing: Se um sistema externo enviar uma feature STRING nova que foi criada no FrontEnd 
+    #   após o treino, o parâmetro handle_unknown='ignore' força um vetor booleano ZERO pacífico,
+    #   evitando uma fatal exception ("Unseen category") que derrubaria todas as inferências do banco.
     # --------------------------------------------------------------------------
     categorical_transformer = Pipeline(steps=[
         ('imputer', SimpleImputer(strategy='constant', fill_value='missing')),
@@ -340,22 +357,23 @@ def get_preprocessor(X):
 
 def build_pipeline(X_train, model, undersampling_ratio=None):
     """
-    Constroi o pipeline completo com Feature Engineering (EDA-driven) + Preprocessing + Modelo.
+    Construtor oficial da Base Híbrida de Escala & Modelo.
+    Fábrica onde os blocos modulares soltos de MLOps são selados dentro de um único pacote.
 
-    Esta funcao centraliza a criacao do pipeline. Pode incluir etapas como:
-    1. EDAFeatureEngineer: Engenharia de features baseada nos insights do EDA
-    2. ColumnTransformer: Preprocessamento (Scaler, Imputer, OneHot)
-    3. RandomUnderSampler (Opcional): Aplicado APENAS as folds de treino no CV, previne data leakage
-    4. Modelo: Algoritmo de classificacao
+    Por que existe:
+    Permite rodar as GridSearches focadas nos Modelos Otimos SEM PREOCUPAR O DESENVOLVEDOR com vazamento
+    de dados nas dobras (Folds) em validação cruzada, encadeando logicamente Transformer > Estimator
+    numa rotina sólida (Ou ImbPipeline em situações assíncronas).
 
-    Args:
-        X_train (pd.DataFrame): Dados de treino brutos (para detectar tipos de coluna).
-        model: Instancia do classificador (LogReg, XGBoost, etc).
-        undersampling_ratio (float, optional): Razao desejada (fraudes / normais). 
-            Ex: 0.5 para ter 10k fraudes e 20k normais (1:2 ratio). Se None, usa-se a base inteira.
+    Recebe:
+    X_train (pd.DataFrame): Dados de treinamento crús onde o preprocessor validará os dtypes.
+    model: Componente não inicializado / estimador ScikitLearn limpo a ser alocado como final do tubo.
+    undersampling_ratio (float | None): Flag condicional de MLOps. Se existir uma taxa (Ex `0.5`), muda o cano
+        inteiro de Scikit Pipeline Clássico para Imbalanced-Learn Pipe com RandomUnderSampling automático 
+        implantado sob demada, focando em lidar com a base brutal (98% Normal x 1% Fraudes).
 
-    Returns:
-        Pipeline: Pipeline completo pronto para .fit() ou GridSearchCV.
+    Retorna:
+    (sklearn.pipeline.Pipeline | imblearn.pipeline.Pipeline): Tubo armado a laser pronto pro `.fit(X,y)` do usuário.
     """
     # Aplica o EDAFeatureEngineer nos dados de treino para que o ColumnTransformer
     # detecte as colunas corretas (incluindo novas flags e sem as removidas)
@@ -398,8 +416,12 @@ def build_pipeline(X_train, model, undersampling_ratio=None):
 
 def process_features():
     """
-    Funcao de execucao isolada (opcional).
-    Gera o preprocessor e testa o pipeline completo.
+    Modo de Execução Standalone e Geração de Artefatos em Lote (Artifact Exporter).
+    
+    Por que existe:
+    Se os desenvolvedores necessitarem rodar uma bateria de re-treinamento ou apenas injetar o arquivo
+    `preprocessor.joblib` na AWS sem treinar um modelo novo, essa porta isolada assume o encargo, 
+    rodando apenas o Transformer sem engatar nenhum Boosting, selando o binário no diretório de saída.
     """
     print("Iniciando construcao de features...")
     X_train = pd.read_pickle(PROCESSED_DATA_DIR / "X_train.pkl")

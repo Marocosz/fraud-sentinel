@@ -2,22 +2,21 @@
 # ARQUIVO: main.py
 #
 # OBJETIVO:
-#   Atuar como o orquestrador principal (Maestro) do Pipeline de Machine Learning.
-#   Controla a execução sequencial das etapas: limpeza, engenharia de dados, 
-#   análise exploratória, treinamento de modelos e inferência.
+#   Atuar como o orquestrador principal (Maestro) MLOps do Pipeline de Machine Learning.
+#   Controla a execução paralela e sequencial das etapas: Limpeza de Estado, ETL Automático, 
+#   Feature Engineering, Geração do EDA, Treinamento Maciço e Inferência em Batelada.
 #
 # PARTE DO SISTEMA:
-#   Orquestrador Central / Entrypoint.
+#   Orquestrador Central / Ponto Único de Entrada Técnica (Entrypoint).
 #
 # RESPONSABILIDADES:
-#   - Limpar artefatos antigos para reprodutibilidade.
-#   - Chamar os módulos em ordem lógica (Data -> EDA -> Models -> Predictions).
-#   - Receber e decodificar argumentos de linha de comando (CLI).
-#   - Treinar os modelos na seleção do usuário.
+#   - Garantir a "Idempotência" do ML Pipeline expurgando lixos vetoriais antigos do disco.
+#   - Isolar módulos e forçar uma ordem cronológica limpa (Dados -> EDA -> Filtros -> Modelos -> Predições).
+#   - Capturar, tratar e ramificar ações com base em Argumentos de Terminal (CLI).
+#   - Treinar seletivamente 1 ou dezenas de Modelos em Loop sem vazamento de memória.
 #
-# COMUNICAÇÃO:
-#   - Importa constantes e utilitários globais de `src/config.py`.
-#   - Centraliza e excuta chamadas das sub-pastas `src/data`, `src/models` e `src/visualization`.
+# INTEGRAÇÕES:
+#   - Ponto focal que ativa sub-módulos `src/data`, `src/features`, `src/models` e `src/visualization`.
 # ==============================================================================
 
 import argparse
@@ -63,12 +62,15 @@ except ImportError:
 
 def reset_project_artifacts():
     """
-    Higienizadora e Resetadora de Ambiente ML.
+    Higienizadora e Resetadora de Ambiente ML (Idempotência Operacional).
     
-    - O que ela faz: Remove todos os artefatos gerados (processados, modelos e relatorios) preventivamente.
-    - Por que ela existe: Garantir uma execucao limpa e totalmente reprodutivel, essencial para pipelines MLOps, sem o 
-      risco de modelos beberem de caches temporais velhas de features não-validadas.
-    - Quando é chamada: No incio da compilação mestre. Pode ser debelada através do Argumento `--no-reset`.
+    Por que existe:
+    Para a ciência de dados corporativa, garantir a reprodutibilidade ("Rodar hoje tem que dar o 
+    mesmo resultado do ano passado") é inegociável. Para isto, antes da compilação mestre, a nuvem 
+    limpa vetores `.pkl` esquecidos de engenharia abortada anterior, impedindo que o modelo atual 
+    se alimente com "Cache Envenenado".
+
+    Acionamento: Automático no inicio. Pode ser bipassado com a flag `--no-reset` em testes contínuos de IDE.
     """
     print("\n🧹 [MAESTRO] Iniciando limpeza de artefatos antigos...")
     
@@ -96,11 +98,12 @@ def reset_project_artifacts():
 
 def main():
     """
-    Funcao Principal (O Maestro do Pipeline de Operações).
+    Ponto de Ramificação Central do App MLOps.
     
-    - O que ela faz: Orquestra a execucao seqüencial e cronológica de todo o workflow (Pipeline ETL -> EDA -> Fit -> Tune).
-    - Regras embutidas: Recebe e mapeia os args CLI (`--models`, `--skip-eda`) acionando ramificações de IFs seletivos.
-      Ao invés de processar o ML no mesmo script, ela apenas delega o gatilho para os módulos responsáveis.
+    Por que existe:
+    O desenvolvedor ou a pipeline Jenkins não podem e não devem executar 6 scripts diferentes manualmente 
+    (Com perigo de errar a ordem causal Dados > Fit > Evaluate). Esta rotina unifica tudo sob um único  
+    arquivo executável abstraído através de Flags CLI simplificadas.
     """
     parser = argparse.ArgumentParser(description="🛡️ Fraud Sentinel - Maestro (Pipeline Orchestrator)")
     

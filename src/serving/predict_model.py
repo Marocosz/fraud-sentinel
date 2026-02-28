@@ -123,13 +123,13 @@ def explain_prediction(model, sample_row, feature_names):
         # puxaram o score para cima.
         pass
 
-def predict_sample(model_name="xgb", n_samples=5):
+def predict_sample(model_name="lgbm", n_samples=5):
     """
     Função Principal de Simulação.
     Cria um loop de requisições simula o comportamento do motor de decisão.
     
     Args:
-        model_name (str): Qual modelo usar (default: 'logreg').
+        model_name (str): Qual modelo usar (default: 'lgbm').
         n_samples (int): Quantas transações processar nesta bateria de teste.
     """
     model, X_test, y_test = load_inference_artifacts(model_name)

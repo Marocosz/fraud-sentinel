@@ -8,21 +8,23 @@ from sklearn.model_selection import train_test_split
 # ARQUIVO: make_dataset.py
 #
 # OBJETIVO:
-#   Preparar o dataset bruto para a modelagem. 
-#   Realiza a carga, otimização de memória e divisão em Treino/Teste.
+#   Preparar o dataset bruto para a modelagem, realizando ingestão, otimização
+#   de memória (downcasting) e divisão da base em Treino/Teste de forma estratificada.
 #
 # PARTE DO SISTEMA:
-#   Pipeline de Engenharia de Dados (Data Ingestion & Splitting).
+#   Pipeline de Engenharia de Dados (Data Ingestion & Splitting)
 #
 # RESPONSABILIDADES:
-#   - Carregar o CSV bruto (Base.csv).
-#   - Otimizar tipos de dados (downcasting) para reduzir uso de RAM.
-#   - Validar a existência do target.
-#   - Realizar o split ESTRATIFICADO (mantendo a % de fraudes).
-#   - Salvar os artefatos (X_train, X_test, y_train, y_test) prontos para uso.
+#   - Carregar arquivo CSV cru na memória.
+#   - Otimizar consumo de RAM convertendo tipos grandes para os menores precisos (ex: float64 para float32).
+#   - Validar se a coluna alvo existe antes de propagar os dados na pipeline.
+#   - Separar estratificadamente a base de dados mantendo a proporção de fraude no grupo de validação cega.
+#   - Salvar dados purificados e isolados em arquivos pickle (.pkl) para reter tipagem.
 #
+# INTEGRAÇÃO:
 #   - Lê: data/raw/Base.csv
-#   - Escreve: data/processed/X_train.pkl, X_test.pkl, y_train.pkl, y_test.pkl
+#   - Escreve: data/processed/ (X_train.pkl, X_test.pkl, y_train.pkl, y_test.pkl)
+#   - Provê: Arquivos isolados que as camadas de feature engineering e treinamento consumirão.
 # ==============================================================================
 
 # Adiciona raiz ao path
@@ -42,13 +44,23 @@ except ImportError:
 
 def optimize_memory_usage(df):
     """
-    Sub-rotina responsável pelo DOWNCAST de matrizes de dados (DataFrames).
+    Sub-rotina responsável pelo DOWNCAST matricial do DataFrame.
     
-    - O que faz: Itera por todas as colunas do dataframe e avalia seus Max/Min. Modifica o tipo de dado
-      (ex. int64 -> int8; float64 -> float32) preservando a exatidão, para reduzir o uso massivo de RAM (OOM Mitigation).
-    - Quando é ativada: Automaticamente pelo Split, imediatamente *antes* de gravar dados particionados.
-    - O que recebe: DataFrame bruto.
-    - O que retorna: DataFrame enxuto (~50% mais leve).
+    Por que existe: 
+    Modelos efetuam computação tabular pesada. Se 2 milhões de instâncias flutuantes puderem 
+    ser representadas de float64 para float32, poupa-se 50% de RAM em servidores de produção, 
+    prevenindo Out-Of-Memory (OOM).
+
+    Como funciona:
+    Inspeciona cada coluna nativa e descobre seus picos matemáticos (Max/Min). 
+    Baseado nessa distância, converte forçadamente a tipagem do Pandas em alocações menores 
+    que consigam abarcar aquele limite sem corromper o valor original do dado.
+
+    Recebe: 
+    df (pd.DataFrame): Tabela orgânica originada de leitura bruta (normalmente float64/int64 default).
+    
+    Retorna: 
+    pd.DataFrame: A mesma tabela injetada com tipagem ajustada e consumo hibridizado mitigado.
     """
     start_mem = df.memory_usage().sum() / 1024**2
     print(f"   💾 Memória antes da otimização: {start_mem:.2f} MB")
@@ -82,14 +94,26 @@ def optimize_memory_usage(df):
 
 def load_and_split_data(max_samples=None):
     """
-    Função gerente da ingestão inicial do Banco de Dados / Data Lake Pessoal.
+    Função gerente da ingestão inicial e particionamento do Data Lake Pessoal.
     
-    - O que ela faz: Puxa o File CSV Base, confirma se o dataset contempla Target, separa estratificado com Random Seed 
-      (fixando base de testes definitiva que não treina, visando auditoria fidedigna do comitê de MLOps)
-      e salva na rede.
-    - Regra Crítica: A otimização de memória *deve estar* após o particionamento temporal para mitigar
-      Data Leakage. Usar Downcast com dados min/max globais antes do Test_Split contamina o Treino e Falsifica CVs.
-    - Quando é ativada: No inicio do Orquestrador (--step split).
+    Por que existe:
+    É a salvaguarda Zero (Camada 0) de todo o projeto. Garante a integridade da variável
+    alvo, estabelece o limite das amostras via downsampling caso desejado e cria o isolamento
+    asséptico entre treino e teste para que modelagem subsequente não cometa "Data Leakage" do mundo real.
+
+    Quando é chamada:
+    Direto na invocação do step `--step split` da rotina orquestradora (main.py).
+
+    Atenção e Regra Lógica Crítica: 
+    A Otimização de Memória (Downcast) iterada OBRIGATORIAMENTE DEVE ocorrer DEPOIS do split.
+    Descobrir os blocos Min/Max puros de todo dataset e comprimí-los todos juntos ANTES do 
+    separador envenenaria de metadados invisíveis os treinos com os dados de "Testes Cegos".
+    
+    Recebe:
+    max_samples (int): Opcional limitador da carga da base. Apenas simulações e ciclos curtos de DEV alteram isso.
+
+    Retorna:
+    Nada (None). Seu efeito colateral direto é a escrita atômica do particionamento na pasta `data/processed/`.
     """
     print(f"🚀 Iniciando pipeline de dados...")
     print(f"📂 Carregando dataset: {RAW_DATA_PATH}...")

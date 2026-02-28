@@ -2,21 +2,20 @@
 # ARQUIVO: xgboost_model.py
 #
 # OBJETIVO:
-#   Configurar e disparar o treinamento do modelo XGBoost (Extreme Gradient Boosting).
-#   Lida especificamente com o tuning e parametrização exigida pelo XGBoost para 
-#   lidar com dados desbalanceados.
+#   Orquestrar o treinamento do modelo XGBoost (Extreme Gradient Boosting).
+#   Lida especificamente com o tuning agressivo e parametrização exigida pelo XGBoost para 
+#   lidar com dados matematicamente desbalanceados via scale_pos_weight.
 #
 # PARTE DO SISTEMA:
-#   Modelagem / Treinamento de Algoritmos Preditivos.
+#   Modelagem / Treinamento de Algoritmos Preditivos (MLOps) - Titular do Ensemble.
 #
 # RESPONSABILIDADES:
-#   - Configurar o dicionário de parâmetros específicos do XGBClassifier.
-#   - Definir a malha de hiperparâmetros (RandomizedSearchCV) para ajuste fino.
-#   - Orquestrar o treinamento delegando o fluxo principal para o `BaseTrainer`.
+#   - Configurar o dicionário de parâmetros de escala (`scale_pos_weight = 90`).
+#   - Construir a malha vasta de Busca Aleatória Espacial (RandomizedSearchCV) para ajuste fino de Árvores.
+#   - Empacotar as dependências e despachar para o `BaseTrainer`.
 #
-# COMUNICAÇÃO:
-#   - Lê configurações gerais do `src.config`.
-#   - Aciona o `BaseTrainer` localizado em `src.models.trainers.base_trainer`.
+# INTEGRAÇÕES:
+#   - Instanciado pelo core `main.py` sob a tag `--models xgb`.
 # ==============================================================================
 
 import warnings
@@ -36,15 +35,15 @@ warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 warnings.filterwarnings("ignore", category=UserWarning, module="xgboost")
 warnings.filterwarnings("ignore", message=".*pkg_resources.*")
 
-# Configuração de Hiperparâmetros para o Treinador Base
-# Intenção: Centralizar em um objeto todas as especificações que distinguem o XGBoost dos demais modelos.
-# O scale_pos_weight foi ativado ativamente porque o modelo sofrerá com o desbalanceamento das classes, 
-# agindo como um método de Cost-Sensitive Learning onde erros na minoritária (fraude) pesam mais.
+# Configuração de Hiperparâmetros MLOps
+# Lógica de Compensação (Cost-Sensitive): O `scale_pos_weight` foi forçado ativamente em ~90 
+# porque o modelo sofre com a distorção maciça das classes (99% Bons Clientes vs 1% Fraudes).
+# Ele avisa o gradiente que um erro (Loss) cometido contra a classe minoritária vale 90x mais penalização.
 MODEL_CONFIG = {
     "model_class": XGBClassifier,
     "model_params": {
         "eval_metric": "logloss",
-        "scale_pos_weight": 90, # Compensador estatístico do desequilíbrio massivo (1% fraude)
+        "scale_pos_weight": 90, # Compensador estatístico estático (Weighting Custo de SubOtimização).
         "n_jobs": -1,
         "random_state": RANDOM_STATE,
         "tree_method": "hist",

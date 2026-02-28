@@ -3,19 +3,20 @@
 #
 # OBJETIVO:
 #   Treinar e otimizar um Multi-Layer Perceptron (Rede Neural Feedforward).
-#   Busca extrair padrões fortemente não lineares que modelos de árvore podem deixar escapar.
+#   Busca extrair padrões fortemente não lineares que modelos de árvore podem deixar escapar,
+#   atuando como o "Veto Supervisor" de alta precisão cirúrgica no Comitê Final (Ensemble).
 #
 # PARTE DO SISTEMA:
-#   Modelagem Preditiva / Deep Learning Básico.
+#   Modelagem Preditiva Avançada / Deep Learning Básico (MLOps).
 #
 # RESPONSABILIDADES:
 #   - Adaptar os parâmetros da classe Scikit-Learn `MLPClassifier`.
-#   - Acoplar `early_stopping` prevenindo overfitting em amostras pequenas.
-#   - Engatar o peso no amostramento de linhas de instâncias sub-representadas (`use_sample_weight`).
+#   - Acoplar `early_stopping` para evitar catástrofes de Overfitting.
+#   - Disparar métricas de penalidade na classe de Fraude (Sample Weights).
 #
-# COMUNICAÇÃO:
-#   - Lê constatações nativas de limites de amostragem de `src.config`.
-#   - Despacha via classe mestre `BaseTrainer`.
+# INTEGRAÇÕES:
+#   - Instanciado pelo core `main.py` sob a tag `--models mlp`.
+#   - Despacha o dicionário de treinamento para a Fábrica Base `BaseTrainer`.
 # ==============================================================================
 
 import warnings
@@ -35,8 +36,9 @@ warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 warnings.filterwarnings("ignore", message=".*pkg_resources.*")
 
 # Configuração Preditiva Global
-# Intenção: O MLP requer ajustes severos em hiperparâmetros de regularização pra convergir
-# nas instâncias minoritárias (como é ativado 'use_sample_weight': True).
+# Intenção MLOps: O MLP requer ajustes severos em hiperparâmetros de regularização para convergir
+# nas instâncias minoritárias. Habilitamos early_stopping para podar iterações divergentes
+# e use_sample_weight para forçar a atenção nas fraudes (pesando-as durante o Backpropagation).
 MODEL_CONFIG = {
     "model_class": MLPClassifier,
     "model_params": {

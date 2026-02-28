@@ -14,31 +14,22 @@ from sklearn.pipeline import Pipeline
 # ARQUIVO: lightgbm_model.py
 #
 # OBJETIVO:
-#   Treinar e otimizar o modelo LightGBM (Light Gradient Boosting Machine).
+#   Treinar e otimizar o modelo estelar LightGBM (Light Gradient Boosting Machine).
+#   No Ensable Final, ele atua como o Titular "Campeão Global de F1-Score e Recall".
 #
-# JUSTIFICATIVA PARA INCLUSAO:
-#   O LightGBM e um dos algoritmos mais utilizados na industria para deteccao
-#   de fraude por varias razoes:
-#   1. VELOCIDADE: Usa histogram-based splitting (O(n*features) -> O(bins*features)),
-#      tornando-o 5-20x mais rapido que XGBoost tradicional.
-#   2. EFICIENCIA DE MEMORIA: Agrupa valores em bins discretos.
-#   3. LEAF-WISE GROWTH: Diferente de level-wise (XGBoost), cresce a folha que
-#      reduz mais o loss, convergindo mais rapido.
-#   4. SUPORTE NATIVO A CATEGORICAS: Pode tratar categoricas sem One-Hot,
-#      mas aqui usamos o pipeline padrao para consistencia.
-#   5. RANKING DE COMPETICOES: Top performer em Kaggle para dados tabulares
-#      (Fernandez-Delgado et al., 2014; Grinsztajn et al., 2022).
-#
-# REFERENCIA:
-#   Ke, G. et al. (2017). "LightGBM: A Highly Efficient Gradient Boosting Decision Tree."
-#   NeurIPS 2017.
+# JUSTIFICATIVA DE ARQUITETURA (MLOps):
+#   1. VELOCIDADE: Usa histogram-based splitting (O(bins*features)), sendo até 20x mais 
+#      rapido que o XGBoost tradicional na busca em profundidade.
+#   2. CONSTATAÇÃO (GLASS CEILING): Em datasets massivos com poucas colunas contextuais,
+#      o Leaf-Wise growth do LGBM consegue cavar purificações que Random Forests jamais fariam.
 #
 # PARTE DO SISTEMA:
-#   Modulo de Treinamento e Otimizacao (Model Training Stage).
+#   Módulo de Treinamento e Otimização Core do Comitê de Decisão.
 #
-# COMUNICACAO:
-#   - Le: data/processed/X_train.csv, y_train.csv
-#   - Escreve: models/lgbm_best_model.pkl, models/lgbm_threshold.txt
+# INTEGRAÇÕES:
+#   - Diferente dos demais, este script não usa o `BaseTrainer` integralmente por motivos
+#     de encapsulamento C++ que costumam falhar no import em SOs desatualizados. 
+#     Ele é Auto-Contido em `try...catch` de resiliência.
 # ==============================================================================
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -107,13 +98,18 @@ def get_model_config():
 
 def train_lightgbm(undersampling_ratio=None):
     """
-    Treina o modelo LightGBM com otimizacao completa de hiperparametros.
-    *Detalhe Arquitetural: Não herda de `BaseTrainer` porque trata-se de um Script Alternativo/Legado
-    para validar customizações finas que o Base ainda não dispunha.*
+    Função Auto-Contida de Treino com Hiperparametrização.
     
-    - O que ela faz: O script lê o conjunto (pickles), roda a malha (RandomSearch), computa Custom Thresholding 
-      e descarrega persistência nos volumes JSONL.
-    - Quando é chamada: No orquestrador primário `main.py` sob parâmetro `--models lgbm`.
+    Por que existe:
+    Este modelo não usa a delegação do `BaseTrainer` porque o módulo C++ nativo do LGBM é muito
+    instável em Windows e Máquinas de Deploy sem Build Tools. Isolar a lógica aqui dentro garante
+    que o orquestrador `main.py` pule esse modelo sem Crashar o Banco inteiro se a biblioteca LightGBM falhar.
+    
+    Fluxo Lógico:
+    1. Resgata e recorta a amostra MLOps (Pickles Otimizados).
+    2. Encaixa sob o cano transformacional (Pipeline) evitando Data Leakage de calibrações de Threshold.
+    3. Exige Test-Drive massivo (RandomizedSearchCV) validando o GAP de Train/Val.
+    4. Expele os binários Campeões (`.pkl` e `.txt`).
     """
     try:
         MODEL_CONFIG = get_model_config()
@@ -239,7 +235,8 @@ def train_lightgbm(undersampling_ratio=None):
         extra_data={
             "search_type": "RandomizedSearchCV",
             "n_iter": MODEL_CONFIG["n_iter"],
-            "train_auc_gap": float(train_score - best_score)
+            "train_auc_gap": float(train_score - best_score),
+            "undersampling_ratio": MODEL_CONFIG.get("undersampling_ratio", None)
         }
     )
     

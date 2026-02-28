@@ -44,19 +44,32 @@ logger = logging.getLogger(__name__)
 
 class BaseTrainer:
     """
-    Classe base para treinamento e otimizacao unificada de modelos.
-    Abstrai leitura de dados, sampling, Grid/Random Search, persistencia e log,
-    resolvendo a questao 'Codigo Duplicado (Alto Impacto)' na Base de Modelos.
+    Classe Abstrata de Treinamento e Otimização Unificada (Design Pattern: Template Method).
+    
+    Por que existe:
+    Resolver o problema de duplicação de lógica (DRY - Don't Repeat Yourself). Antes de MLOps, cada 
+    novo algoritmo (XGBoost, Random Forest, MLP) repetia a mesma calha de tratamento de Pipeline, 
+    cross-validation, sampling, tuning de logs e exportações. Esta classe orquestra a cadeia 
+    mestra e deixa o algoritmo se conectar apenas via 'config'.
+
+    Responsabilidade Crítica (Integração):
+    Ao instanciar, ela encapsula a busca do conjunto Treino/Teste na base local, aciona módulos externos 
+    para Cost-Sensitive Learning e delega ao threshold_utils.py a extração da probabilidade ideal de 
+    Ponto de Corte (Anti-Falsos Positivos) antes de selar o `.pkl`.
     """
     
     def __init__(self, model_prefix: str, config: Dict[str, Any]):
         """
-        Construtor da classe Orquestradora de Modelagem.
+        Construtor da Classe Mestra de Modelagem.
         
-        - O que recebe: 
-          `model_prefix`: String curta que nomeará os `.pkl` e arquivos derivados (ex: 'xgb', 'rf').
-          `config`: Constante DTO do respectivo modelo contendo hiperparâmetros de malha.
-        - Por que existe: Fazer Injeção de Dependências por construtor e acoplar a Tag Única `run_id` temporal.
+        Como atua: 
+        Realiza Injeção de Dependências acoplando a tag temporal única (Run ID) para o rastreio
+        laboratorial (Experiment Logging) de longo prazo.
+
+        Recebe: 
+          - model_prefix (str): Etiqueta curta que nomeará os `.pkl` gerados (ex: 'xgb', 'rf').
+          - config (Dict): DTO de malha contendo os hiperparâmetros (param_distributions), ratio 
+            de imbalanced learn, CPU cores (n_jobs) e tipo de search (Random/Grid).
         """
         self.model_prefix = model_prefix
         self.config = config
@@ -81,23 +94,48 @@ class BaseTrainer:
         return X_train, y_train
 
     def train(self) -> BaseEstimator:
+        """
+        Rotina principal de Treinamento.
+        
+        Por que existe:
+        Centraliza todo o ciclo analítico de Machine Learning num só gatilho assíncrono.
+        
+        Fluxo Lógico Interno:
+        1. Resgate dos Pickle de disco.
+        2. Determina se o Algoritmo tentará lidar com o desbalanceamento brutal do Banco por "Corte Fisico"
+           (Undersampling ImbLearn) ou "Corte Matemático" (Cost-Sensitive Learning com Sample Weights). O script
+           aborta o Cost-Sensitive se perceber que um UnderSampling já atenuou as métricas (para evitar mismatch).
+        3. Realiza cortes aleatórios para fôlego de processamento da nuvem (se o dataset tiver 1 milhão de linhas,
+           usar todo ele no GridSearchCV levaria semanas de computação).
+        4. Otimiza os hiperparâmetros pela grade Random/Grid.
+        5. Reconstrói o Modelo Campeão cego ensinando TODO o dataset original à ele (Full Retrain) 
+           para retenção permanente de aprendizado.
+        6. Persiste as métricas matemáticas, o `.pkl` bruto e as Thresholds na pasta rastreável `reports/`.
+        
+        Retorna:
+        BaseEstimator: Objeto pipeline sklearn vivo, engatilhado na melhor configuração de limiares prováveis.
+        """
         logger.info(f"🚀 Iniciando Pipeline: {self.config.get('model_class').__name__} (Run ID: {self.run_id})")
         
-        # 1. IO Abstraction
+        # 1. Isolamento de Leitura
         X_train, y_train = self._load_data()
         
-        # 2. Pipeline Creation
+        # 2. Criação Modular Estrutural
         clf = self.config["model_class"](**self.config.get("model_params", {}))
         undersampling_ratio = self.config.get("undersampling_ratio", None)
         pipeline = build_pipeline(X_train, clf, undersampling_ratio=undersampling_ratio)
         
         use_sample_weight = self.config.get("use_sample_weight", False)
+        # BUGFIX de Integração Analítica: Evita aplicar pesos matemáticos caso o Undersampling 
+        # Físico (Remoção temporal de registros de Bons Clientes) já tenha equalizado a balança.
+        if undersampling_ratio is not None:
+            use_sample_weight = False
+
         sample_weights = None
         if use_sample_weight:
             sample_weights = compute_sample_weight(class_weight='balanced', y=y_train)
         
-        # 3. Stratified Sampling for Search
-        # Standardization: Todos passam pela mesma logica de amostragem
+        # 3. Otimização Volumétrica (Sampling para Grid)
         sample_size = self.config.get("sample_size", 100000)
         X_sample, y_sample = self._get_sample(X_train, y_train, sample_size)
         
@@ -178,6 +216,10 @@ class BaseTrainer:
         save_threshold(best_threshold, self.model_prefix, MODELS_DIR)
         
         # 8. Experiment Tracking
+        extra_info = {
+            "sample_size_used_for_search": len(X_sample),
+            "undersampling_ratio": self.config.get("undersampling_ratio", None)
+        }
         log_experiment(
             run_id=self.run_id,
             model_type=self.config["model_class"].__name__,
@@ -187,7 +229,7 @@ class BaseTrainer:
             model_path=versioned_model_path.name,
             reports_dir=REPORTS_DIR,
             smote_strategy=self.config.get("smote_strategy", None),
-            extra_data={"sample_size_used_for_search": len(X_sample)}
+            extra_data=extra_info
         )
         
         # Simple text report
