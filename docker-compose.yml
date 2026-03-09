@@ -1,0 +1,20 @@
+services:
+  fraud-sentinel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fraud-sentinel:latest
+    container_name: fraud-sentinel
+
+    # Monta volumes para persistir os artefatos gerados fora do container
+    volumes:
+      - ./models:/app/models
+      - ./reports:/app/reports
+      - ./data/processed:/app/data/processed
+
+    # Comando padrão: treina todos os modelos pulando EDA (mais rápido)
+    # Sobrescreva com: docker compose run fraud-sentinel --models xgb,lgbm
+    command: ["--skip-eda"]
+
+    environment:
+      - PYTHONUNBUFFERED=1

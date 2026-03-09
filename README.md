@@ -479,7 +479,7 @@ fraud-sentinel/
 |   |       |-- xgboost_model.py       # Treinamento XGBoost
 |   |       |-- mlp_model.py           # Treinamento MLP (Rede Neural)
 |   |       |-- isolation_forest_model.py # Treinamento Isolation Forest
-|   |       |-- lightgbm_model.py      # Treinamento LightGBM (Campeao de Precisao)
+|   |       |-- lightgbm_model.py      # Treinamento LightGBM (Campeao de F1/Recall)
 |   |       |-- stacking_model.py      # Treinamento de Stacking Ensemble
 |   |
 |   |-- serving/
@@ -651,7 +651,7 @@ A classe `IForestWrapper` inverte o score de anomalia (`-decision_function`), no
 | Atributo                     | Descricao                                                                                    |
 | ---------------------------- | -------------------------------------------------------------------------------------------- |
 | **Funcoes**                  | `load_inference_artifacts()`, `load_threshold()`, `explain_prediction()`, `predict_sample()` |
-| **Motor de decisao**         | Score > Threshold -> BLOQUEIO; Score > Threshold\*0.8 -> REVISAO MANUAL; Abaixo -> APROVADO  |
+| **Motor de decisao**         | Votos Maioria >= 2 -> BLOQUEIO; Voto Isolado MLP -> REVISAO MANUAL; Senao -> APROVADO        |
 | **Estrategia de amostragem** | Forca 50% de fraude na demonstracao para visualizacao                                        |
 
 ### src/models/force_precision.py -- Ajuste de Precision-Alvo
@@ -762,7 +762,7 @@ simulate_production() -> predict_ensemble() :
        a. Calcula proba para os 3 modelos e computa contra os seus 3 thresholds otimizados.
        b. Majority Vote Logic (Smart Ensemble c/ Veto Especial):
           - Se Fraud_Votes >= Majority_Threshold (ex: 2/3): BLOQUEIO (Alta Confiança)
-          - Se Fraud_Votes > 0 E Votante Unico == 'LightGBM': REVISÃO MANUAL (Veto de Precisão)
+          - Se Fraud_Votes > 0 E Votante Unico == 'mlp': REVISÃO MANUAL (Veto de Precisão)
           - Senao: APROVADO (Nivel de Risco Assumido)
     4. Atualiza os TPs, FPs, TNs e FNs em Real Time.
     5. Imprime resultado consolidado visual Terminal CLI.
@@ -833,7 +833,7 @@ A estrategia de "banco de dados" e baseada em **flat files**, onde cada execucao
 
 ```
 Se (Votos de Fraude do Comitê) >= Maioria (2+ de 3): --> BLOQUEIO AUTOMATICO (Alto Risco)
-Se (Votos = 1) E (Voto de Fraude originado pelo LightGBM): --> REVISAO MANUAL (Médio/Alto Risco - Veto de Campeão)
+Se (Votos = 1) E (Voto de Fraude originado pela MLP): --> REVISAO MANUAL (Médio/Alto Risco - Veto de Campeão)
 Outros Casos (Voto 0 ou voto único de modelo fraco):  --> APROVADO (Baixo Risco Aceitável)
 ```
 
@@ -1038,7 +1038,7 @@ Enfrentamos de duas formas cruzadas:
 
 ## 10.4 Threshold Tuning vs Corte Euclidiano Clássico
 
-O Default clássico da inteligência de código aberto dita o limiar estático: A IA afirma que há fraude se _P(Fraude) > 0.5 (50%)_.
+O Default clássico da inteligência de código aberto dita o limiar estático: A IA afirma que há fraude se _P(Fraude) >= 0.5 (50%)_.
 A teoria de ML Operations deste nosso sistema renega isso agressivamente: Diferentes IAs com funções de custo escaladas absurdamente (como a de ~90 do passo anterior) costumam distorcer brutalmente suas saídas probabilísticas numéricas puras (_Proba Calibration_ distorcido e natural das _Decision Trees_).
 
 **Arquitetura de Limiar Computado:** Realizamos a rotina forçada buscando do índice _`0.001`_ ao `0.999`. Compilamos internamente uma malha calculando os Falsos Positivos e Verdadeiros Positivos de forma simultânea. Selecionamos dinamicamente (no pacote `threshold_utils.py`) a casa decimal (Geralmente orbitando entre as probabilidades baixíssimas de `0.06` à `0.15` e não os ideais _0.5_) que representa o pico extremo da montanha do **Score F1** — harmonicamente mediando o limite exato onde a precisão de prender bandidos decai menos face à captura total pretendida do Recall. Este número decimal é extraído e arquivado estático no `.txt` em disco lógico a ser consumido compulsoriamente na simulação online pela interface do Sistema do Banco.
@@ -1167,7 +1167,7 @@ Abaixo, detalhamos conceitualmente, tecnicamente e os motivos do sucesso ou frac
 
 ### 12.3.2 Máquinas de Gradient Boosting (`XGBClassifier` & `LGBMClassifier`)
 
-> **🟢 Resultados Práticos:** Consagração do _Hype_ tabulado do Aprendizado de Máquina Competitivo atual. Domínio ostensivo Absoluto das métricas focadas nos cenários de desproporção assimétrica (`LGBM: F1 = 0.231, PR_AUC = 0.158` / `XGB: F1 = 0.231, PR_AUC = 0.153`). Limites de bloqueio otimizados na margem probabilística cravada em torno dos `0.88` aos `0.89`.
+> **🟢 Resultados Práticos:** Consagração do _Hype_ tabulado do Aprendizado de Máquina Competitivo atual. Domínio ostensivo Absoluto das métricas focadas nos cenários de desproporção assimétrica (`LGBM: F1 = 0.231, PR_AUC = 0.158` / `XGB: F1 = 0.221, PR_AUC = 0.147`). Limites de bloqueio otimizados na margem probabilística cravada em torno dos `0.88` aos `0.89`.
 
 - **A Essência do Sucesso (Boosting Sequencial Teórico):** Contrastando radicalmente perante a Natureza Aleatória de "Média Popular" gerada em paridade das Árvores Bagging, estes motores geram árvores estritamente encadeadas no espaço-tempo. A Árvore subsequente constrói-se focando seu Gradiente puramente nos Resíduos (O erro contínuo). Elas perseguem de forma predatória os `"Erros Complexos"` — a parcela elitista de fraudadores avançados que despistam todas as avaliações rasas — alocando neles pesos gigantes de penalização forçatória.
 

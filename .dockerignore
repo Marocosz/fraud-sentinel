@@ -1,0 +1,39 @@
+# Ambiente virtual local
+venvmine/
+
+# Artefatos gerados (serão recriados em runtime)
+data/processed/
+data/external/
+models/
+reports/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Arquivos de desenvolvimento e documentação
+*.docx
+*.pdf
+ideia_inicial.md
+catboost_info/
+
+# Git
+.git/
+.gitignore
+
+# Testes
+tests/
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# IDE e OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
